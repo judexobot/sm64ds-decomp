@@ -17,6 +17,6 @@ struct AssetStats {
 // Must be called after mount_european_rom, before the game's boot thread.
 // Not safe to run concurrently with game reads. File generation may be slow;
 // call off the Android UI thread. NEVER package its output in public builds.
-AssetStatus prepare_pc_assets(const char *private_root, AssetStats *out = nullptr);
+AssetStatus prepare_pc_assets(const char *rom_path, const char *private_root, AssetStats *out = nullptr);
 const char *asset_status_text(AssetStatus);
 }

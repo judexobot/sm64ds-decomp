@@ -74,7 +74,7 @@ int main() {
     assert(ntr::fs_id_by_path("data/test.bmd") == 1);
     sm64ds_android::AssetStats st{};
     const std::string target = base + "/game/pc-assets";
-    auto status = sm64ds_android::prepare_pc_assets(target.c_str(), &st);
+    auto status = sm64ds_android::prepare_pc_assets(rom.c_str(), target.c_str(), &st);
     if (status != sm64ds_android::AssetStatus::ok)
         std::fprintf(stderr, "asset error: %s\n",
                      sm64ds_android::asset_status_text(status));
@@ -97,7 +97,7 @@ int main() {
     assert(write_file(rom, image));
     assert(sm64ds_android::mount_european_rom(rom.c_str()) ==
            sm64ds_android::RomStatus::ok);
-    assert(sm64ds_android::prepare_pc_assets(target.c_str()) ==
+    assert(sm64ds_android::prepare_pc_assets(rom.c_str(), target.c_str()) ==
            sm64ds_android::AssetStatus::invalid_handle_table);
 
     // A traversal path inside the ROM must not escape private storage.
@@ -106,7 +106,7 @@ int main() {
     assert(write_file(rom, image));
     assert(sm64ds_android::mount_european_rom(rom.c_str()) ==
            sm64ds_android::RomStatus::ok);
-    assert(sm64ds_android::prepare_pc_assets(target.c_str()) ==
+    assert(sm64ds_android::prepare_pc_assets(rom.c_str(), target.c_str()) ==
            sm64ds_android::AssetStatus::invalid_file_path);
     std::puts("ASMP PC HAL native assets: FNT/FAT, 2058 handles, images and guards passed");
     return 0;

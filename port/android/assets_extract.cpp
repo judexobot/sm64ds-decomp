@@ -232,22 +232,23 @@ AssetStatus get_handles(const std::vector<uint8_t> &rom,
 }
 } // namespace
 
-AssetStatus prepare_pc_assets(const char *private_root, AssetStats *out) {
+AssetStatus prepare_pc_assets(const char *rom_path, const char *private_root, AssetStats *out) {
     if (out) *out = {};
     if (!ntr::fs_mounted()) return AssetStatus::rom_not_mounted;
-    if (!private_root || !*private_root || private_root[0] != '/' ||
+    if (!rom_path || !*rom_path || rom_path[0] != '/' ||
+        !private_root || !*private_root || private_root[0] != '/' ||
         std::strstr(private_root, "/../") || std::strstr(private_root, "/./") ||
         std::strlen(private_root) > 512)
         return AssetStatus::invalid_destination;
     const std::string root(private_root);
     if (!mkdirs(root)) return AssetStatus::write_failure;
 
-    // The main ROM is already mounted, but keep the ROM bytes available from
-    // the same private path so raw FNT/FAT/overlay table slices stay exact.
-    // The Android importer always copies it to /files/game/sm64ds_eur.nds.
-    const std::string rom_path = root + "/../sm64ds_eur.nds";
+    // Read the explicitly selected private cartridge path, not a guessed
+    // sibling of the output folder. This also supports custom app layouts.
+    const std::string ready = root + "/build/assets/android_extract.ready";
+    unlink(ready.c_str());  // never leave a stale "complete" marker on failure
     std::vector<uint8_t> rom;
-    if (!open_read(rom_path.c_str(), &rom) || rom.size() < 0x200)
+    if (!open_read(rom_path, &rom) || rom.size() < 0x200)
         return AssetStatus::read_failure;
     if (std::memcmp(rom.data() + 0x0C, "ASMP", 4) != 0)
         return AssetStatus::invalid_rom_metadata;

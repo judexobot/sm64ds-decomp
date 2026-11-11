@@ -50,12 +50,18 @@ Java_dev_judexobot_sm64ds_NativeBridge_nativeConfigureDisplay(
 
 extern "C" JNIEXPORT jint JNICALL
 Java_dev_judexobot_sm64ds_NativeBridge_nativePrepareAssets(
-        JNIEnv *env, jclass, jstring appPrivateRoot) {
-    if (!appPrivateRoot) return static_cast<jint>(
+        JNIEnv *env, jclass, jstring privateRomPath, jstring appPrivateRoot) {
+    if (!privateRomPath || !appPrivateRoot) return static_cast<jint>(
         sm64ds_android::AssetStatus::invalid_destination);
-    const char *utf = env->GetStringUTFChars(appPrivateRoot, nullptr);
-    if (!utf) return static_cast<jint>(sm64ds_android::AssetStatus::invalid_destination);
-    const auto status = sm64ds_android::prepare_pc_assets(utf);
-    env->ReleaseStringUTFChars(appPrivateRoot, utf);
+    const char *rom = env->GetStringUTFChars(privateRomPath, nullptr);
+    if (!rom) return static_cast<jint>(sm64ds_android::AssetStatus::invalid_destination);
+    const char *root = env->GetStringUTFChars(appPrivateRoot, nullptr);
+    if (!root) {
+        env->ReleaseStringUTFChars(privateRomPath, rom);
+        return static_cast<jint>(sm64ds_android::AssetStatus::invalid_destination);
+    }
+    const auto status = sm64ds_android::prepare_pc_assets(rom, root);
+    env->ReleaseStringUTFChars(appPrivateRoot, root);
+    env->ReleaseStringUTFChars(privateRomPath, rom);
     return static_cast<jint>(status);
 }

@@ -41,7 +41,7 @@ public final class RomImporter {
             if (NativeBridge.nativeMountRom(finalFile.getAbsolutePath()) != 0)
                 throw new IOException("Cannot mount finalized ROM");
             File assets = new File(folder, "pc-assets");
-            int assetStatus = NativeBridge.nativePrepareAssets(assets.getAbsolutePath());
+            int assetStatus = NativeBridge.nativePrepareAssets(finalFile.getAbsolutePath(), assets.getAbsolutePath());
             if (assetStatus != 0)
                 throw new IOException("PC asset extraction failed (status " + assetStatus + ")");
             return finalFile;

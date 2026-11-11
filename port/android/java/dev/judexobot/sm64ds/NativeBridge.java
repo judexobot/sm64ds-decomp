@@ -16,7 +16,7 @@ public final class NativeBridge {
     /** Port PC aspect ratio / render scale; call before the first game frame. */
     public static native void nativeConfigureDisplay(int width, int height, int renderScale);
     /** Create PC HAL files.tsv, handles.tsv and original NitroFS files off the UI thread. */
-    public static native int nativePrepareAssets(String appPrivateRoot);
+    public static native int nativePrepareAssets(String appPrivateRom, String appPrivateRoot);
     /** 0: EUR ASMP cart mounted. See port/android/rom_loader.h for errors. */
     public static native int nativeMountRom(String appPrivatePath);
 }

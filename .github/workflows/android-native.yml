@@ -21,7 +21,7 @@ jobs:
           /tmp/rom_loader_test
       - name: Test complete PC HAL asset catalog extraction from synthetic ROM
         run: |
-          g++ -std=c++17 -Wall -Wextra -Iport/android -Iport/ntr/include             port/ntr/fs.cpp port/android/rom_loader.cpp             port/android/assets_extract.cpp port/android/tests/assets_extract_test.cpp             -o /tmp/assets_extract_test
+          g++ -std=c++17 -Wall -Wextra -Iport/android -Iport/ntr/include             port/ntr/fs.cpp port/android/rom_loader.cpp             port/android/blz.cpp port/android/assets_extract.cpp port/android/tests/assets_extract_test.cpp             -o /tmp/assets_extract_test
           /tmp/assets_extract_test
   touch-pad:
     runs-on: ubuntu-latest

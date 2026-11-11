@@ -10,7 +10,7 @@ add_library(sm64ds_android_core STATIC
   ../ntr/lz77.cpp ../ntr/fs.cpp ../ntr/bmd.cpp ../ntr/hdtex.cpp
   ../ntr/smooth.cpp ../ntr/ppu_sub.cpp ../ntr/ppu_audit.cpp
   ../ntr/ipc.cpp ../ntr/runtime.cpp ../ntr/rt_android.cpp ../ntr/arm_switch.S
-  rom_loader.cpp assets_extract.cpp touch_input.cpp)
+  rom_loader.cpp blz.cpp assets_extract.cpp touch_input.cpp)
 target_include_directories(sm64ds_android_core PUBLIC ../ntr/include .. .)
 target_compile_definitions(sm64ds_android_core PUBLIC SM64DS_PLATFORM_ANDROID=1 NTR_WIDE_RT=1)
 target_link_libraries(sm64ds_android_core PUBLIC log)

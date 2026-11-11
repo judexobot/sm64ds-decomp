@@ -2,6 +2,7 @@
 // All output originates from a user-selected game cartridge in private storage.
 // No hardcoded game asset bytes, no host Python, no repository-extracted data.
 #include "assets_extract.h"
+#include "blz.h"
 #include "ntr/fs.h"
 #include <algorithm>
 #include <array>
@@ -120,52 +121,6 @@ bool rom_span(const std::vector<uint8_t> &rom, uint32_t off, uint32_t bytes) {
     return span(off, bytes, rom.size());
 }
 
-// Nintendo DS BLZ decompresses backwards. The footer encodes an 8+ byte
-// header, the compressed region size and the extra decompressed length.
-// Bound the entire operation; never trust compressed pointers or lengths.
-bool decompress_overlay(std::vector<uint8_t> *bytes, uint32_t ram_size) {
-    const size_t old_size = bytes->size();
-    if (old_size < 8) return false;
-    const uint32_t footer = rd32(bytes->data() + old_size - 8);
-    const size_t header_size = footer >> 24;
-    const size_t compressed_size = footer & 0xFFFFFFu;
-    const size_t expanded = rd32(bytes->data() + old_size - 4);
-    if (header_size < 8 || header_size > compressed_size ||
-        compressed_size > old_size || expanded == 0 ||
-        expanded > MAX_OVERLAY || old_size + expanded > MAX_OVERLAY ||
-        old_size + expanded != ram_size)
-        return false;
-    const size_t uncompressed_prefix = old_size - compressed_size;
-    size_t src = old_size - header_size;
-    size_t dst = old_size + expanded;
-    std::vector<uint8_t> result(dst, 0);
-    std::memcpy(result.data(), bytes->data(), old_size);
-    while (src > uncompressed_prefix && dst > uncompressed_prefix) {
-        const uint8_t flags = result[--src];
-        for (int bit = 7; bit >= 0 && dst > uncompressed_prefix; --bit) {
-            if ((flags & (1u << bit)) != 0) {
-                if (src - uncompressed_prefix < 2) return false;
-                const uint8_t b1 = result[--src];
-                const uint8_t b2 = result[--src];
-                const size_t len = (b1 >> 4) + 3;
-                const size_t distance = (((b1 & 0x0Fu) << 8) | b2) + 3;
-                for (size_t i = 0; i < len; ++i) {
-                    if (dst <= uncompressed_prefix || dst - 1 + distance >= result.size())
-                        return false;
-                    --dst;
-                    result[dst] = result[dst + distance];
-                }
-            } else {
-                if (src <= uncompressed_prefix) return false;
-                if (dst <= uncompressed_prefix) return false;
-                result[--dst] = result[--src];
-            }
-        }
-    }
-    if (dst != uncompressed_prefix) return false;
-    *bytes = std::move(result);
-    return true;
-}
 
 struct Entry {
     uint32_t id = 0;
@@ -204,7 +159,7 @@ AssetStatus get_handles(const std::vector<uint8_t> &rom,
     std::vector<uint8_t> overlay(rom.begin() + ov0_offset,
                                  rom.begin() + ov0_offset + ov0_size);
     if (flags & 1) {
-        if (!decompress_overlay(&overlay, ram_size))
+        if (!expand_blz(&overlay, ram_size))
             return AssetStatus::bad_overlay;
     }
     if (TABLE_RAM_ADDRESS < ram_addr ||
@@ -362,7 +317,7 @@ AssetStatus prepare_pc_assets(const char *rom_path, const char *private_root, As
             return AssetStatus::bad_overlay;
         std::vector<uint8_t> image(rom.begin() + image_begin,
                                    rom.begin() + image_end);
-        if ((flags & 1u) != 0 && !decompress_overlay(&image, ram_size))
+        if ((flags & 1u) != 0 && !expand_blz(&image, ram_size))
             return AssetStatus::bad_overlay;
         if (image.size() > ram_size) return AssetStatus::bad_overlay;
         char name[48];

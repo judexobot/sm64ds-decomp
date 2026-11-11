@@ -52,8 +52,14 @@ target_link_libraries(sm64ds_android_game_entry
 # complete game .so must resolve them against the whole port/hal and src set.
 add_library(sm64ds_android_game_flow STATIC
   ../hal/rom_frame.cpp ../hal/title_entry.cpp
-  ../hal/level_change.cpp ../hal/readable_guard.cpp)
+  ../hal/level_change.cpp ../hal/readable_guard.cpp
+  ../hal/boot_os.cpp ../hal/romdata_loader.cpp)
 target_include_directories(sm64ds_android_game_flow PUBLIC
   ../ntr/include .. .)
 target_link_libraries(sm64ds_android_game_flow
   PRIVATE sm64ds_android_core)
+
+# The same ROM-clean separation used by the shipping PC port:
+# no Nintendo bytes in Android libraries. The generated romdata_dispatch.c
+# and exact metadata-only PC release recipe must be supplied before link.
+target_compile_definitions(sm64ds_android_game_flow PRIVATE PORT_ROM_CLEAN=1)

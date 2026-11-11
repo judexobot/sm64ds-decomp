@@ -2,7 +2,7 @@ name: Android native port build
 on:
   push:
     branches: ["android/**"]
-    paths: ["port/ntr/**", "port/android/**", "port/hal/scene_frame_shared.h", "port/tests/walk_window.cpp", ".github/workflows/android-native.yml"]
+    paths: ["port/ntr/**", "port/android/**", "port/hal/**", "port/tests/walk_window.cpp", ".github/workflows/android-native.yml"]
   pull_request:
     paths: ["port/ntr/**", "port/android/**", ".github/workflows/android-native.yml"]
   workflow_dispatch:

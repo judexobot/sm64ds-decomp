@@ -62,6 +62,16 @@ to copy its selected Uri into app-private storage; that helper calls the NTR
 ROM validation and keeps no network dependency. Nintendo assets must never be
 checked into source or packed into public CI artifacts.
 
+- `libsm64ds_android_game_flow.a` now cross-compiles genuine
+  `rom_frame.cpp`, `title_entry.cpp`, `level_change.cpp` and the original
+  `boot_os.cpp` pre-main/game-heap initialization, plus the ROM-clean
+  `romdata_loader.cpp` compiled with `PORT_ROM_CLEAN=1`.
+  These compile but still have unresolved original game symbols and must be
+  linked against the full translated game, generated ROM dispatch and HAL.
+  The Android title adapter now invokes PC's real `port_scene_finish` then
+  `port_title_entry_commit` once on file-selection completion, leaving
+  the original level target and rejecting a torn-down title's next tick.
+
 ## Real original-scene game loop now under port
 
 The Android adapter `game_scene_entry.cpp` calls `port_scene_begin` (original

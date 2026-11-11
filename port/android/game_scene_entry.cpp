@@ -66,7 +66,9 @@ SceneGameStatus scene_game_begin(const char *asset_root) {
 }
 SceneGameStatus scene_game_frame() {
     if (!started) return SceneGameStatus::not_started;
-    if (handoff_pending) return SceneGameStatus::level_handoff_required;
+    if (handoff_pending)
+        return pending_level < 0 ? SceneGameStatus::handoff_refused
+                                 : SceneGameStatus::level_handoff_required;
     const auto *fb = static_cast<const ntr::Framebuffer *>(port_scene_framebuffer());
     if (!fb) return SceneGameStatus::frame_missing;
 
@@ -106,6 +108,9 @@ SceneGameStatus scene_game_frame() {
     // Do not tick a dead scene, fake a level or silently restart the title.
     // The full native level boot must be linked before consuming the handoff.
     if (port_title_entry_should_stop()) {
+        // The title is already torn down by the ROM. Even an invalid request
+        // MUST end this scene permanently: never tick a destroyed object.
+        handoff_pending = true;
         // This is the SAME end-of-scene and StartFile handoff as PC:
         // report the ROM frame count, tear down the title through the
         // genuine scene finisher, and commit the ROM's requested level.
@@ -117,7 +122,6 @@ SceneGameStatus scene_game_frame() {
         pending_level = port_level_host_boot_target();
         if (pending_level < 0)
             return SceneGameStatus::handoff_refused;
-        handoff_pending = true;
         return SceneGameStatus::level_handoff_required;
     }
     return presented ? SceneGameStatus::ok : SceneGameStatus::no_surface;

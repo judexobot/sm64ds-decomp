@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Verify original scene PadData and Ctrl edges, frame sequence
         run: |
-          g++ -std=c++17 -Wall -Wextra -Werror -Iport \
+          g++ -std=c++17 -Wall -Wextra -Werror -Iport -Iport/android \
             port/android/scene_input.cpp port/android/tests/scene_input_test.cpp \
             -o /tmp/scene_input_test
           /tmp/scene_input_test

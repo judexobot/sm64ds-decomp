@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <sys/stat.h>
 
 extern "C" {

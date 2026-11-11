@@ -31,3 +31,16 @@ target_include_directories(sm64ds_android PRIVATE ../ntr/include .. .)
 add_library(sm64ds_android_audio STATIC out_android.cpp)
 target_include_directories(sm64ds_android_audio PUBLIC .. .)
 target_link_libraries(sm64ds_android_audio PUBLIC aaudio log)
+
+
+# The REAL scene/title/minigame frame driver, not a sample renderer.
+# It directly references port_scene_begin/port_scene_tick and the original
+# NTR PadData globals in hal/scene_boot.cpp. Keep as a separate static archive
+# until the Windows-hosted game's complete link closure can be ported: linking
+# only the NDK core into libsm64ds_android.so is NOT a game build.
+add_library(sm64ds_android_game_entry STATIC
+  game_scene_entry.cpp scene_input.cpp)
+target_include_directories(sm64ds_android_game_entry PUBLIC
+  ../ntr/include .. .)
+target_link_libraries(sm64ds_android_game_entry
+  PRIVATE sm64ds_android_core)

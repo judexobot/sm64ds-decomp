@@ -306,6 +306,7 @@ struct PortMemCounters {
    DualShock, DualSense, generic HID). Both DLLs are loaded dynamically there,
    like user32 here. */
 #include "hal/pad_backend.h"
+#include "hal/scene_frame_shared.h"  /* shared PC/Android original scene-frame order */
 typedef PortPadState XPad;
 
 static bool winapi_load(void)
@@ -8309,7 +8310,7 @@ static int scene_window_run(void)
     /* R3a: the ROM's frame state is this loop's frame number too, so a run that
        plays a scene and then falls through into a level reports two frame
        accounts rather than one blurred one. */
-    port_rom_frame_begin("scene loop");
+    sm64ds_port::scene_frame_begin("scene loop");
     static XPad pad;
     while (!quit) {
         if (scene_menu_at >= 0 &&
@@ -8324,7 +8325,7 @@ static int scene_window_run(void)
 
         /* the scene's own frame; the menu's pause is its second argument, the
            same switch the level loop's game_ticked is */
-        port_scene_tick(port_rom_frame_checked(frame, "scene-tick"), !menu_on);
+        sm64ds_port::scene_frame_simulate(frame, !menu_on);
 
         scene_host_present_frame(hwnd, stacked, fb);
         /* THE HOSTED ARM7, EXACTLY ONCE A FRAME -- and port_scene_tick above
@@ -8349,11 +8350,11 @@ static int scene_window_run(void)
            the 125ms ring drains and the speaker gets whatever the hardware
            repeats. So: the game's frames are pumped there, the paused frames
            are pumped here, and no frame is pumped twice. */
-        if (menu_on) sdat_host_tick();
+        /* The paused ARM7 audio service moves into the shared scene foot. */
         /* THE ROM'S PHASE 6 on this path, for the level loop's reason: the
            frame's work is done and nothing of the next has started. The scene
            path has no rollback boundary, so there is no re-anchor here. */
-        port_rom_frame_phase6();
+        sm64ds_port::scene_frame_complete(!menu_on);
         ++frame;
         /* fault_probe.h: crash.txt/exit.txt context, the ROM's frame number and
            this path's every-frame cross-check. */

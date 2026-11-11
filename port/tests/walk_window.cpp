@@ -307,6 +307,7 @@ struct PortMemCounters {
    like user32 here. */
 #include "hal/pad_backend.h"
 #include "hal/scene_frame_shared.h"  /* shared PC/Android original scene-frame order */
+#include "hal/title_handoff_shared.h"  /* shared ROM StartFile/level handoff */
 typedef PortPadState XPad;
 
 static bool winapi_load(void)
@@ -8392,14 +8393,11 @@ static int scene_window_run(void)
 #endif
     fprintf(stderr, "[scene] window closed after %d frame(s)\n",
             port_rom_frame_checked(frame, "scene-closed"));
-    port_rom_frame_report();   /* R3a: this loop's frame account, one line */
-    const int scene_rc =
-        port_scene_finish(port_rom_frame_checked(frame, "scene-finish"));
-    /* AFTER the census, so a run that enters the adventure still leaves the
-       title's own slot hits, captures and trap counts behind. Answers 0 and
-       prints nothing unless the bridge is armed AND the handoff completed. */
-    port_title_entry_commit();
-    return scene_rc;
+    /* PC and Android finish the real title in precisely this order, including
+       the scene's ROM-data census and the actual StartFile level latch. */
+    const auto finished = sm64ds_port::title_finish_and_commit(
+        port_rom_frame_checked(frame, "scene-finish"));
+    return finished.scene_result;
 }
 
 /* PORT_HOST_ABI: the host program entry point (window + ntr bring-up + frame

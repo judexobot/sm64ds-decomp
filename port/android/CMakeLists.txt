@@ -44,3 +44,15 @@ target_include_directories(sm64ds_android_game_entry PUBLIC
   ../ntr/include .. .)
 target_link_libraries(sm64ds_android_game_entry
   PRIVATE sm64ds_android_core)
+
+
+# Original PC ROM frame clock + title-entry controller. Compile as game-side
+# Android objects rather than copying their policy or linking a fake scene.
+# These archives can carry unresolved original game symbols; the eventual
+# complete game .so must resolve them against the whole port/hal and src set.
+add_library(sm64ds_android_game_flow STATIC
+  ../hal/rom_frame.cpp ../hal/title_entry.cpp)
+target_include_directories(sm64ds_android_game_flow PUBLIC
+  ../ntr/include .. .)
+target_link_libraries(sm64ds_android_game_flow
+  PRIVATE sm64ds_android_core)

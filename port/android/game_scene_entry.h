@@ -8,10 +8,13 @@ namespace sm64ds_android {
 // entire PC game closure (currently blocked on Windows-specific sources).
 enum class SceneGameStatus {
     ok, already_started, no_assets, game_boot_failed, not_started,
-    frame_missing, no_surface, level_handoff_required
+    frame_missing, no_surface, level_handoff_required, handoff_refused
 };
 SceneGameStatus scene_game_begin(const char *asset_root);
 SceneGameStatus scene_game_frame();
 int scene_game_frame_count();
+// The precise next level committed by the original ROM StartFile/level latch.
+// -1 if title has not requested a valid handoff.
+int scene_game_pending_level();
 void scene_game_stop_input();
 }

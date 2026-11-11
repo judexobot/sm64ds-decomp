@@ -7,6 +7,7 @@
 #include "touch_input.h"
 #include "android_present.h"
 #include "hal/scene_frame_shared.h"
+#include "hal/title_handoff_shared.h"
 #include "ntr/ppu.h"
 #include <cstdlib>
 #include <cstdio>
@@ -25,6 +26,7 @@ extern char data_0209f49e[];            // Ctrl pressed (0x18 stride)
 extern unsigned short data_020a0e58[];  // PadData held+pressed, 4-byte stride
 extern unsigned short data_020a0e5a[];  // split PadData pressed alias
 int port_title_entry_should_stop(void); // original ROM file-select -> stage request
+int port_level_host_boot_target(void);
 int hal_sub_screen_stacked(void);
 unsigned int *hal_sub_screen_stacked_image(const unsigned int *top);
 void hal_sub_screen_stacked_size(int *w, int *h);
@@ -33,6 +35,7 @@ namespace sm64ds_android {
 namespace {
 bool started = false;
 bool handoff_pending = false;
+int pending_level = -1;
 int current_frame = 0;
 SceneInput scene_input;
 }
@@ -57,6 +60,7 @@ SceneGameStatus scene_game_begin(const char *asset_root) {
     scene_input.reset();
     current_frame = 0;
     handoff_pending = false;
+    pending_level = -1;
     started = true;
     return SceneGameStatus::ok;
 }
@@ -102,12 +106,24 @@ SceneGameStatus scene_game_frame() {
     // Do not tick a dead scene, fake a level or silently restart the title.
     // The full native level boot must be linked before consuming the handoff.
     if (port_title_entry_should_stop()) {
+        // This is the SAME end-of-scene and StartFile handoff as PC:
+        // report the ROM frame count, tear down the title through the
+        // genuine scene finisher, and commit the ROM's requested level.
+        // "pending" is set ONLY after the real port_title_entry_commit
+        // succeeded; it performs model/VRAM reap, intro arm and level latch.
+        const auto result = sm64ds_port::title_finish_and_commit(current_frame);
+        if (!result.entered_level)
+            return SceneGameStatus::handoff_refused;
+        pending_level = port_level_host_boot_target();
+        if (pending_level < 0)
+            return SceneGameStatus::handoff_refused;
         handoff_pending = true;
         return SceneGameStatus::level_handoff_required;
     }
     return presented ? SceneGameStatus::ok : SceneGameStatus::no_surface;
 }
 int scene_game_frame_count() { return current_frame; }
+int scene_game_pending_level() { return handoff_pending ? pending_level : -1; }
 void scene_game_stop_input() {
     touch_clear();
     scene_input.reset();

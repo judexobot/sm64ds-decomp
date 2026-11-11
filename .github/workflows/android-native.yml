@@ -54,6 +54,10 @@ jobs:
             port/android/scene_input.cpp port/android/tests/scene_input_test.cpp \
             -o /tmp/scene_input_test
           /tmp/scene_input_test
+      - name: Verify original title scene finish and level commit ordering
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Iport             port/android/tests/title_handoff_test.cpp -o /tmp/title_handoff_test
+          /tmp/title_handoff_test
       - name: Assert PC scene loop invokes same native scene-frame seam
         run: |
           python3 - <<'PY'
@@ -96,6 +100,7 @@ jobs:
             build/android-armv7/libsm64ds_android_core.a
             build/android-armv7/libsm64ds_android_audio.a
             build/android-armv7/libsm64ds_android_game_entry.a
+            build/android-armv7/libsm64ds_android_game_flow.a
             build/android-armv7/libsm64ds_android.so
             build/android-classes/**
             build/android-armv7/android_runtime_test

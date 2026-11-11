@@ -111,6 +111,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include "title_handoff_shared.h"
 
 extern "C" {
 
@@ -806,13 +807,8 @@ extern "C" int port_title_entry_run(void)
             break;
         }
     }
-    port_rom_frame_report();
-
-    /* THE CENSUS IS WRITTEN OVER THE FRAMES THAT ACTUALLY RAN, not over the
-       budget. A short run that reports the budget is how a capture ends up
-       attributed to frames nobody ticked. */
-    const int scene_rc = port_scene_finish(frame);
-    if (port_title_entry_commit())
-        return 0;                /* the caller falls through; rc is the level's */
-    return scene_rc;
+    /* Finish/census/commit is shared with PC windowed title and Android.
+       The ROM decides the level; this helper only preserves the exact order. */
+    const auto finished = sm64ds_port::title_finish_and_commit(frame);
+    return finished.entered_level ? 0 : finished.scene_result;
 }

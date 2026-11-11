@@ -58,6 +58,7 @@ jobs:
           name: sm64ds-android-armv7-game-engine
           path: |
             build/android-armv7/libsm64ds_android_core.a
+            build/android-armv7/libsm64ds_android_audio.a
             build/android-armv7/libsm64ds_android.so
             build/android-classes/**
             build/android-armv7/android_runtime_test

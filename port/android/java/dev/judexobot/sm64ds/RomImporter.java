@@ -35,6 +35,15 @@ public final class RomImporter {
             if (status != 0) throw new IOException("ROM rejected (status " + status + "); EUR ASMP required");
             if (finalFile.exists() && !finalFile.delete()) throw new IOException("Cannot replace previous ROM");
             if (!temp.renameTo(finalFile)) throw new IOException("Cannot finalize ROM copy");
+            // The PC game reads many extracted NitroFS assets and its ov0
+            // handle table; simply mounting the ROM is not enough. This is
+            // CPU/file-intensive: call this helper on a worker thread.
+            if (NativeBridge.nativeMountRom(finalFile.getAbsolutePath()) != 0)
+                throw new IOException("Cannot mount finalized ROM");
+            File assets = new File(folder, "pc-assets");
+            int assetStatus = NativeBridge.nativePrepareAssets(assets.getAbsolutePath());
+            if (assetStatus != 0)
+                throw new IOException("PC asset extraction failed (status " + assetStatus + ")");
             return finalFile;
         } finally {
             if (temp.exists()) temp.delete();

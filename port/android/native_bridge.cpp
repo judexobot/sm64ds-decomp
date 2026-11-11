@@ -1,6 +1,7 @@
 #include "touch_input.h"
 #include "android_present.h"
 #include "rom_loader.h"
+#include "assets_extract.h"
 #include "ntr/ppu.h"
 #include <jni.h>
 
@@ -45,4 +46,16 @@ Java_dev_judexobot_sm64ds_NativeBridge_nativeConfigureDisplay(
         ntr::configure_aspect(double(width) / double(height),
                               scale >= 1 && scale <= 4 ? scale : 2);
     }
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_dev_judexobot_sm64ds_NativeBridge_nativePrepareAssets(
+        JNIEnv *env, jclass, jstring appPrivateRoot) {
+    if (!appPrivateRoot) return static_cast<jint>(
+        sm64ds_android::AssetStatus::invalid_destination);
+    const char *utf = env->GetStringUTFChars(appPrivateRoot, nullptr);
+    if (!utf) return static_cast<jint>(sm64ds_android::AssetStatus::invalid_destination);
+    const auto status = sm64ds_android::prepare_pc_assets(utf);
+    env->ReleaseStringUTFChars(appPrivateRoot, utf);
+    return static_cast<jint>(status);
 }

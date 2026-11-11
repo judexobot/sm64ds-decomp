@@ -26,6 +26,10 @@ to a Win32 frontend.
   input branch to receive these values, not a substitute minigame.
 - NTR_WIDE_RT for runtime aspect/render-scale support. The JNI
   nativeConfigureDisplay API keeps the underlying game's wide-buffer path.
+- AAudio output stage for the SAME SDAT stereo mixer as PC
+  (`sd_mix_render`, 32768 Hz, 16 original voice channels): lock-free
+  ring to a real-time Android callback and output-only resampling to 48kHz;
+  this component cross-compiles but is not wired into a full game binary yet.
 - ANativeWindow RGBA_8888 frame presenter: accepts the original engine's
   ARGB composited output and letterboxes it correctly on mobile surfaces.
 - Android JNI bridge and reusable NativeScreenLayout to pair real display

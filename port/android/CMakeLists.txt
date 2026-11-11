@@ -23,3 +23,11 @@ add_library(sm64ds_android SHARED
   native_bridge.cpp android_present.cpp)
 target_link_libraries(sm64ds_android PRIVATE sm64ds_android_core android log)
 target_include_directories(sm64ds_android PRIVATE ../ntr/include .. .)
+
+# Direct replacement for the Windows WinMM SDAT output stage. This calls the
+# actual game's 16-channel sd_mix_render from port/hal/sdat/mixer.cpp when the
+# full game closure is linked. Keep the backend separate until that game link
+# exists; compiling a .a does not imply playable audio yet.
+add_library(sm64ds_android_audio STATIC out_android.cpp)
+target_include_directories(sm64ds_android_audio PUBLIC .. .)
+target_link_libraries(sm64ds_android_audio PUBLIC aaudio log)

@@ -23,7 +23,7 @@ jobs:
         run: |
           test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || command -v sdkmanager
       - name: Install NDK
-        run: sdkmanager --install "ndk;27.2.12479018"
+        run: "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018"
       - name: Configure native ARMv7
         run: |
           cmake -S port/android -B build/android-armv7 -G Ninja \

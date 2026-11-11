@@ -128,9 +128,8 @@ static unsigned int host_swp(unsigned int val, void *addr) {
 #if defined(_WIN32)
     return (unsigned int)InterlockedExchange((volatile LONG *)addr, (LONG)val);
 #else
-    unsigned int old = *(volatile unsigned int *)addr;
-    *(volatile unsigned int *)addr = val;
-    return old;
+    return __atomic_exchange_n(static_cast<unsigned int *>(addr), val,
+                               __ATOMIC_SEQ_CST);
 #endif
 }
 // PORT_HOST_ABI: ARM `swp` atomic exchange, no mwccarm/MSVC C equivalent.

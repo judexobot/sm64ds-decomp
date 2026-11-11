@@ -339,6 +339,10 @@ short data_020a0dbc[2];
    stores, then its post-reads, so it reports honestly today -- but anything
    new that needs a store on one name to be seen through another must use
    _ReadWriteBarrier() (or read through the same name it wrote), not volatile. */
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_SECTION(".dsstate$touch0000", 4)
+unsigned char port_touch_records[4 * kPortMaxPlayers] = {};
+#else
 __pragma(section(".dsstate$touch0000", read, write)) __declspec(allocate(".dsstate$touch0000")) __declspec(align(1)) unsigned char data_020a0de8[1] = { 0 };
 __pragma(section(".dsstate$touch0001", read, write)) __declspec(allocate(".dsstate$touch0001")) __declspec(align(1)) unsigned char data_020a0de9[1] = { 0 };
 __pragma(section(".dsstate$touch0002", read, write)) __declspec(allocate(".dsstate$touch0002")) __declspec(align(1)) unsigned char data_020a0dea[1] = { 0 };
@@ -351,6 +355,7 @@ __pragma(section(".dsstate$touch0002", read, write)) __declspec(allocate(".dssta
    the tail simply carries records 1..15 instead of 1..3. 4 bytes a record x
    sixteen records = 64, less the three bytes the head names own = 61. */
 __pragma(section(".dsstate$touch0003", read, write)) __declspec(allocate(".dsstate$touch0003")) __declspec(align(1)) unsigned char data_020a0deb[4 * kPortMaxPlayers - 3] = { 0 };
+#endif
 int data_020a0e5a[kPortMaxPlayers * 2];
 /* data_020a1052 moved to hal/camera_bridges.cpp: it is a field INSIDE the
    local comms record at data_020a1040, not storage of its own */
@@ -618,6 +623,13 @@ int data_0209f61c[0x2c / 4];   /* ROM span 0x2c */
 int data_0209f5d0[0xc / 4];    /* ROM span 0xc */
 }
 DSSTATE_END
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_ALIAS(data_020a0de8, port_touch_records, 0, 1);
+DSSTATE_ALIAS(data_020a0de9, port_touch_records, 1, 1);
+DSSTATE_ALIAS(data_020a0dea, port_touch_records, 2, 1);
+static_assert(kPortMaxPlayers == 16, "update the ELF touch-tail size with the hosted width");
+DSSTATE_ALIAS(data_020a0deb, port_touch_records, 3, 61);
+#endif
 
 /* Sound:: is a NAMESPACE in the TU that calls this one (YAX mangling) */
 namespace Sound { void UnsetPlayerVoiceGroup(); }

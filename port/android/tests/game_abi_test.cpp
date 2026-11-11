@@ -22,6 +22,7 @@ static_assert(offsetof(Stage, mMeshCollider) == sm64ds_port::stage_collision_off
 static_assert(std::is_same_v<decltype(&slot), int (*)(void *, unsigned, unsigned)>);
 static_assert(std::is_same_v<decltype(PORT_D16(destroy)), int (*)(void *)>);
 int main() {
+    port_dtorcall_verbose = 0;
     int self = 7;
     assert(slot(&self, 2, 3) == 30);
     assert(PORT_D16(destroy)(&self) == static_cast<int>(reinterpret_cast<std::size_t>(&self)));

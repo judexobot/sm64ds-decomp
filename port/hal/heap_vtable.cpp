@@ -17,8 +17,14 @@
 // hybrid's gates existed to catch, and the port has no gate to catch it.
 #include <stdio.h>
 #include <stdlib.h>
+#include "host_call.h"
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <unwind.h>
+#include <stdint.h>
+#endif
 #include "dsstate_seg.h"
 
 typedef unsigned int u32;
@@ -169,12 +175,14 @@ public:
     int Allocate(u32 size, int align);
     void Deallocate(void *p);
 };
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" {
 int _ZN4Heap8AllocateEji(void *self, u32 size, int align)
 { return ((Heap *)self)->Allocate(size, align); }
 void _ZN4Heap10DeallocateEPv(void *self, void *p)
 { ((Heap *)self)->Deallocate(p); }
 }
+#endif
 
 // C++ references to Memory::Allocate(u32,int,Heap*) -> the C definition
 /* RETIRED at ALIAS2 (wave 8, the main -> port sync): main's tree defines this
@@ -213,12 +221,22 @@ void *Allocate(u32 size, int align, Heap *heap)
 extern "C" void Crash(void)
 {
     fprintf(stderr, "FATAL: game Crash() reached\n");
+#if defined(_WIN32)
     void *frames[12];
     unsigned n = CaptureStackBackTrace(0, 12, frames, 0);
     char *base = (char *)GetModuleHandleA(0);
     for (unsigned i = 0; i < n; ++i)
         fprintf(stderr, "  frame %u: +0x%08x\n", i,
                 (unsigned)((char *)frames[i] - base));
+#else
+    unsigned count = 0;
+    _Unwind_Backtrace([](_Unwind_Context *context, void *arg) {
+        auto &index = *static_cast<unsigned *>(arg);
+        fprintf(stderr, "  frame %u: 0x%lx\n", index++,
+                static_cast<unsigned long>(_Unwind_GetIP(context)));
+        return index < 12 ? _URC_NO_REASON : _URC_END_OF_STACK;
+    }, &count);
+#endif
     abort();
 }
 #pragma comment(linker, "/alternatename:?Crash@@YAXXZ=_Crash")
@@ -239,6 +257,12 @@ extern "C" void *hal_heap_allocate_align4(void *self, u32 size)
     return (void *)(size_t)((Heap *)self)->Allocate(size, 4);
 }
 #pragma comment(linker, "/alternatename:__ZN4Heap8AllocateEj=_hal_heap_allocate_align4")
+#if defined(SM64DS_PLATFORM_ANDROID)
+__asm__(".global _ZN6Memory14defaultHeapPtrE\n"
+        ".set _ZN6Memory14defaultHeapPtrE, data_020a0ea0\n"
+        ".type _ZN6Memory14defaultHeapPtrE, %object\n"
+        ".size _ZN6Memory14defaultHeapPtrE, 4\n");
+#endif
 
 // ---- the synthetic vtable ------------------------------------------------
 //
@@ -260,35 +284,35 @@ extern "C" void *hal_heap_allocate_align4(void *self, u32 size)
 //
 // Slots the port has not yet had a caller for still trap by name; the table
 // being the right SHAPE is what stops a dispatch running off the end of it.
-static void *__fastcall slot_alloc(void *self, void *, u32 size, int align)
+static void *__fastcall slot_alloc(void *self PORT_EDX, u32 size, int align)
 { return ((ExpandingHeap *)self)->VAllocate(size, align); }
-static int __fastcall slot_dealloc(void *self, void *, void *p)
+static int __fastcall slot_dealloc(void *self PORT_EDX, void *p)
 { return _ZN13ExpandingHeap11VDeallocateEPv(self, p); }
-static void *__fastcall slot_realloc(void *self, void *, void *p, u32 size)
+static void *__fastcall slot_realloc(void *self PORT_EDX, void *p, u32 size)
 { return ((ExpandingHeap *)self)->VReallocate(p, size); }
-static u32 __fastcall slot_sizeof(void *self, void *, void *p)
+static u32 __fastcall slot_sizeof(void *self PORT_EDX, void *p)
 { return ((ExpandingHeap *)self)->VSizeof(p); }
 /* LINKAGE SEAT: slots 6/7/15 get the class's own matched bodies (arm9
    0x0203c65c VIntact, 0x0203c630 VRescue, 0x0203c388 VResizeToFit, all
    2004/b56 byte-matches). The int-returning thunk widens VIntact's bool the
    way ARM r0 carries it, so a caller reading the slot as int sees 0/1. */
-static int __fastcall slot_intact(void *self, void *)
+static int __fastcall slot_intact(void *self PORT_EDX)
 { return ((ExpandingHeap *)self)->VIntact(); }
-static void __fastcall slot_rescue(void *self, void *)
+static void __fastcall slot_rescue(void *self PORT_EDX)
 { ((ExpandingHeap *)self)->VRescue(); }
-static u32 __fastcall slot_resizetofit(void *self, void *)
+static u32 __fastcall slot_resizetofit(void *self PORT_EDX)
 { return ((ExpandingHeap *)self)->VResizeToFit(); }
 /* LINKAGE SEAT 2: slots 13/14, the class's own matched NodeID forwarders
    (arm9 0x0203c3f8 VSetNodeID, 0x0203c3e0 VGetNodeID, 2004/b56
    byte-matches), which reach the allocator's flat-C accessors through the
    method bridges above. */
-static void __fastcall slot_setnodeid(void *self, void *, u32 id)
+static void __fastcall slot_setnodeid(void *self PORT_EDX, u32 id)
 { ((ExpandingHeap *)self)->VSetNodeID(id); }
-static u32 __fastcall slot_getnodeid(void *self, void *)
+static u32 __fastcall slot_getnodeid(void *self PORT_EDX)
 { return ((ExpandingHeap *)self)->VGetNodeID(); }
 
 #define TRAP(n) \
-    static void __fastcall slot_trap##n(void *, void *) { \
+    static void __fastcall slot_trap##n(void * PORT_EDX) { \
         fprintf(stderr, "FATAL: ExpandingHeap vtable slot %d dispatched " \
                         "with no caller evidence (see heap_vtable.cpp)\n", n); \
         abort(); }

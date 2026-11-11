@@ -27,6 +27,9 @@ to a Win32 frontend.
   symbol and for the entire romdata.bin. The exact recipe/manifest for this
   version must be supplied at packaging time; NONE is invented or bundled
   here. Both files contain no Nintendo asset bytes.
+- `RomImporter.importAndPrepareEuropeanRom` takes only the selected ROM URI,
+  loads the APK's own metadata pair privately, and invokes the SHA-checked
+  rebuilder off the UI thread. The player never supplies recipe/manifest files.
 - `RomImporter.finishPcAssets` wires the verified data root through JNI to
   the original PC HAL's SM64DS_ASSET_ROOT environment setting, before
   the as-yet-unlinked full game's boot thread.
@@ -61,9 +64,11 @@ There is deliberately no mock game Activity and no fake playable artifact.
 
 The decomp targets the European retail Super Mario 64 DS image, game code
 ASMP. Keep your legally dumped cartridge ROM outside GitHub. A real app
-should open Android ACTION_OPEN_DOCUMENT and use RomImporter.importEuropeanRom
-to copy its selected Uri into app-private storage; that helper calls the NTR
-ROM validation and keeps no network dependency. Nintendo assets must never be
+should open Android ACTION_OPEN_DOCUMENT and invoke
+`RomImporter.importAndPrepareEuropeanRom(context, selectedUri)` on its import
+worker. The APK supplies the exact build metadata under `assets/sm64ds/`;
+validation, extraction and SHA reconstruction stay in app-private storage and
+require no network. That metadata is still missing from this build. Nintendo assets must never be
 checked into source or packed into public CI artifacts.
 
 - `libsm64ds_android_game_flow.a` now cross-compiles genuine

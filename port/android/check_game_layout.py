@@ -4,6 +4,7 @@ import argparse
 import pathlib
 import struct
 import subprocess
+import source_gen
 
 
 def main():
@@ -30,6 +31,8 @@ def main():
         "port_scene_title_state": ("data_0209b33c", "data_0209b340", "data_0209b34b", "data_0209b34e", "data_0209b3d8"),
         "port_scene_touch_state": ("data_020a80cc", "data_020a80e4"),
         "port_level_save_state": ("data_0209caa0", "data_0209cab4", "data_0209cad2", "data_0209cae4", "data_0209caf4"),
+        "port_touch_records": ("data_020a0de8", "data_020a0de9", "data_020a0dea", "data_020a0deb"),
+        "port_card_state": ("data_020a8180", "data_020a81bc", "data_020a8760"),
     }
     for backing, aliases in groups.items():
         assert len(symbols[backing]) == 1
@@ -42,6 +45,16 @@ def main():
             assert offset - base == int(name.split("_")[1], 16) - ds_base, name
             assert 0 <= offset - base < length and offset - base + size <= length, name
         print(f"{backing}: {len(aliases)} ELF aliases at exact DS offsets, {length} bytes")
+    for alias, backing, length in (("data_020a4d38", "_ZN6Memory16rootHeapIteratorE", 32),
+                                    ("_ZN6Memory14defaultHeapPtrE", "data_020a0ea0", 4),
+                                    ("data_0209f2d8", "data_0209f2d8_c", 1)):
+        assert len(symbols[alias]) == len(symbols[backing]) == 1
+        assert symbols[alias][0][:2] == symbols[backing][0][:2], alias
+        assert symbols[alias][0][2] == length, alias
+    for name in ("data_0209f49c", "data_0209f49e", "data_0209f4a0", "data_0209f4ac", "data_0209f4ae"):
+        assert len(symbols.get(name, [])) == 1 and symbols[name][0][2] == 16 * 0x18, name
+    for name in ("__aeabi_idiv", "_ZN4Heap7DestroyEv"):
+        assert not any("actor_vtables.cpp.o" in row[0] for row in symbols.get(name, [])), name
     # These must resolve to actual native source definitions, never the PC
     # symbol-name forwarders that become recursive under native Itanium ABI.
     for name in ("_ZN2GX13SetBankForTexEt", "_ZN2GX13SetBankForOBJEt",
@@ -60,6 +73,16 @@ def main():
     assert "BeforeInitResourcesEv.cpp.o" in symbols["_ZTV8dScene_c"][0][0]
     assert not any("level_boot.cpp.o" in row[0] for row in
                    symbols.get("_ZN7fBase_c19BeforeInitResourcesEv", []))
+    for raw in ("_ZN5Stage9PS_RenderEv", "_ZN5Stage9LC_RenderEv", "_ZN5Stage19RenderVsModeNewStarEv",
+                "_ZN3OAM6RenderEbP7OamAttriiiiP9Matrix2x2", "_ZN7Message7DisplayEj"):
+        assert len(symbols.get(raw, [])) == 1, raw
+        assert "stage_frame.cpp.o" not in symbols[raw][0][0], f"native forwarder or PC seam: {raw}"
+    player = source_gen.ROOT / "src/actors/Player.cpp"
+    parts = source_gen.ordinal_parts(player.read_text())
+    assert len(parts) == 301, "Player original function inventory changed; review native isolation"
+    for name, _ in parts:
+        assert len(symbols.get(name, [])) == 1, f"missing or duplicate Player definition: {name}"
+    print("All 301 original Player functions and original pause/clear/VS draw bodies are defined")
     print("ARM32 objects and real scene/Stage/StartFile definitions verified; game link/runtime still required")
 
 

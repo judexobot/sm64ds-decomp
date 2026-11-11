@@ -274,6 +274,7 @@ void Stage::RenderVsModeCountdown() { _ZN5Stage21RenderVsModeCountdownEv(); }
 void Particle::SysTracker::Update()
 { _ZN8Particle10SysTracker6UpdateEv(this); }                                 */
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
 int OAM::Render(bool draw, OamAttr *obj, int px, int py, int pal, int prio,
                 Matrix2x2 *mtx)
 {
@@ -281,6 +282,7 @@ int OAM::Render(bool draw, OamAttr *obj, int px, int py, int pal, int prio,
                                              pal, prio, (void *)mtx);
     return 0;
 }
+#endif // Native Itanium already publishes the real OAM::Render symbol.
 
 /* ---- SLOT 9's THREE SEAMS (run link100, lane RENDER9) ---------------------
  *
@@ -309,6 +311,7 @@ int OAM::Render(bool draw, OamAttr *obj, int px, int py, int pal, int prio,
  * there would take out every level in the battery for a banner the port has
  * never drawn. */
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
 static void slot9_seam(const char *what, const char *why)
 {
     std::fprintf(stderr,
@@ -350,6 +353,7 @@ void Stage::RenderVsModeNewStar()
                    "ov002 rows at 0x0210cfd0..0x0210d188");
     }
 }
+#endif // Android requires the original three draw bodies and their templates.
 
 /* ---- TWO MORE FACES, AND THEY ARE NOT SPELLING FIXES --------------------
  *
@@ -392,8 +396,10 @@ public:
     int CanPause();
 };
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void _ZN7Message7DisplayEj(int m)
 { ((Message *)(void *)(unsigned)m)->Message::Display(0); }
+#endif // The forwarder has the same native symbol as its destination.
 
 extern "C" int func_020bd828(void *p)
 { return ((Player *)p)->Player::CanPause(); }
@@ -432,6 +438,7 @@ extern "C" int func_020bd828(void *p)
  * first run that reaches it says so in the log. It does not abort: unlike
  * _ZTV5Stage slot 3, nothing downstream of this call depends on it having
  * happened -- Stage::Behavior returns 1 on the very next line either way. */
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void func_020199a4(void)
 {
     static int said;
@@ -444,6 +451,7 @@ extern "C" void func_020199a4(void)
                      "port/slice_gate220.txt and hal/stage_frame.cpp.\n");
     }
 }
+#endif // Android must resolve the original VS loop, never the PC seam.
 
 /* ---- the entry point hal/stage_bridges.cpp dispatches into ---------------
  *

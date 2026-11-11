@@ -343,6 +343,9 @@ bool flush()
     }
     bool ok = std::fwrite(g_image, 1, sizeof g_image, f) == (size_t)kSize;
     if (std::fflush(f) != 0) ok = false;
+#if defined(SM64DS_PLATFORM_ANDROID)
+    if (fsync(fileno(f)) != 0) ok = false;
+#endif
     if (std::fclose(f) != 0) ok = false;
     if (!ok) {
         std::remove(tmp);
@@ -451,6 +454,9 @@ Stats stats() { return g_stats; }
 // THE ROM SIDE: the card driver's storage, and the three faces
 // ============================================================================
 
+#if !defined(NTR_BACKUP_MEDIUM_ONLY)
+// Host unit tests can exercise the real storage backend independently of
+// ARM32 CARDiCommon. Production always includes the card command adapter.
 extern "C" {
 
 DSSTATE_BEGIN
@@ -488,6 +494,9 @@ int data_port_backup_device[10] = {
 // integration (LNK2005), and the contiguous one owns the bytes.
 extern "C" unsigned char data_020a8760[4];
 extern "C" unsigned char data_020a8180[60];
+#if defined(SM64DS_PLATFORM_ANDROID)
+extern "C" unsigned char port_card_state[1508];
+#endif
 
 // The record tag every save record carries, and the tag ReadDataFromCart
 // compares a record against before it will believe the payload. On hardware
@@ -568,7 +577,15 @@ struct PortBackupFill {
            this reason. The copy below spans both names the way the ROM does. */
         static_assert(sizeof(PortCardWork) <= 60 + 1444,
                       "PortCardWork exceeds the card span data_020a8180..data_020a8760");
+#if defined(SM64DS_PLATFORM_ANDROID)
+        // Full owning object, not the 60-byte interior alias: fortify must
+        // see the actual extent of the CARDiCommon initialization copy.
+        unsigned char *card = port_card_state;
+        static_assert(sizeof(void *) == 4 && sizeof(PortCardWork) == 0x1e0,
+                      "CARDiCommon adapter requires its real ARM32 layout");
+#else
         unsigned char *card = data_020a8180;
+#endif
         std::memcpy(card, &kCardWorkInit, sizeof kCardWorkInit);
         int *row = data_port_backup_device;
         std::memcpy(data_020a8760, &row, sizeof row);
@@ -674,6 +691,7 @@ int func_02060f60(void *self, int cmd, int retries)
 }
 
 }  // extern "C"
+#endif // !NTR_BACKUP_MEDIUM_ONLY
 
 // ============================================================================
 // THE ROMDATA PROPOSAL, for whoever picks this up next

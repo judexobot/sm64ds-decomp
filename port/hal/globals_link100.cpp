@@ -89,12 +89,23 @@
 // ---------------------------------------------------------------------------
 
 #include <stdio.h>
+#include <stdint.h>
+#include "dsstate_seg.h"
 
 /* One grouped run. MSVC merges same-named sections in order of the text after
    the '$', so $card00..$card02 land contiguously and in that order; $c sorts
    between the .dsstate$aaa and .dsstate$zzz sentinels hal/dsstate_seg.cpp
    defines, so the save state's section copy takes them. This is the idiom
    hal/scene_boot.cpp's L2 pack and hal/cxx_aliases.cpp's GX bank block use. */
+#if defined(SM64DS_PLATFORM_ANDROID)
+extern "C" {
+DSSTATE_SECTION(".dsstate$card00", 4)
+unsigned char port_card_state[1508] = {};
+}
+DSSTATE_ALIAS(data_020a8180, port_card_state, 0, 60);
+DSSTATE_ALIAS(data_020a81bc, port_card_state, 60, 1444);
+DSSTATE_ALIAS(data_020a8760, port_card_state, 1504, 4);
+#else
 #define LINK100_CARD(sec, name, size)                             \
     __pragma(section(sec, read, write))                           \
     extern "C" __declspec(allocate(sec)) __declspec(align(1))     \
@@ -106,6 +117,7 @@ LINK100_CARD(".dsstate$card00", data_020a8180, 60);
 LINK100_CARD(".dsstate$card01", data_020a81bc, 1444);
 /* +0x05e0  the stack TOP func_02058200 grows down from */
 LINK100_CARD(".dsstate$card02", data_020a8760, 4);
+#endif
 
 extern "C" int port_link100_card_check(void)
 {
@@ -116,10 +128,10 @@ extern "C" int port_link100_card_check(void)
     };
     int bad = 0;
     for (int i = 0; i < 3; ++i)
-        if (k[i].p - data_020a8180 != k[i].want) {
+        if ((uintptr_t)k[i].p - (uintptr_t)data_020a8180 != (unsigned)k[i].want) {
             fprintf(stderr, "  [link100] CARD PACK BROKEN: %s at +0x%x, ROM "
                     "says +0x%x\n", k[i].n,
-                    (unsigned)(k[i].p - data_020a8180), k[i].want);
+                    (unsigned)((uintptr_t)k[i].p - (uintptr_t)data_020a8180), k[i].want);
             bad = 1;
         }
     return bad;

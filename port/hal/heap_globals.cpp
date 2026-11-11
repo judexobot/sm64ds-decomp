@@ -23,9 +23,16 @@ extern "C" {
 // arena), so they live in the .dsstate capture section -- they were in the
 // old hand-picked list and stay captured under the section scheme.
 DSSTATE_BEGIN
+#if defined(SM64DS_PLATFORM_ANDROID)
+alignas(4) // Native pointer/word fields inside this opaque list head.
+#endif
 char _ZN6Memory16rootHeapIteratorE[0x20];
 int _ZN6Memory25isRootHeapIterInitializedE;
 DSSTATE_END
+
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_ALIAS(data_020a4d38, _ZN6Memory16rootHeapIteratorE, 0, 0x20);
+#endif
 
 // SDK asm primitive (stmia burst fill) -> plain word fill on host. The
 // frontier classifies its TU as HAL-owned; this is the HAL half.
@@ -54,6 +61,7 @@ void MultiStore_Int(int val, int *dst, int len)
 // /alternatename between those links fine and then reads garbage as `this`
 // at runtime. Real forwarders convert the convention.
 #include "NestedHeapIterator.h"
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" {
 void _ZN18NestedHeapIterator7AddLastEP13HeapAllocator(void *self, HeapAllocator *a)
 { ((NestedHeapIterator *)self)->AddLast(a); }
@@ -69,3 +77,4 @@ int _ZN18NestedHeapIterator4NextEP13HeapAllocator(void *self, HeapAllocator *a)
 // too, or both callers go unresolved.
 extern "C" void _ZN18NestedHeapIterator4InitEP13HeapAllocator(char *self, char *a)
 { ((NestedHeapIterator *)self)->Init((HeapAllocator *)a); }
+#endif

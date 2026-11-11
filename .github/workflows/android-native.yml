@@ -42,8 +42,11 @@ jobs:
           mkdir -p /tmp/romdata-classes
           javac -source 8 -target 8 -d /tmp/romdata-classes \
             port/android/java/dev/judexobot/sm64ds/RomDataRebuilder.java \
-            port/android/tests/RomDataRebuilderTest.java
+            port/android/java/dev/judexobot/sm64ds/RomDataKit.java \
+            port/android/tests/RomDataRebuilderTest.java \
+            port/android/tests/RomDataKitTest.java
           java -cp /tmp/romdata-classes dev.judexobot.sm64ds.RomDataRebuilderTest
+          java -cp /tmp/romdata-classes dev.judexobot.sm64ds.RomDataKitTest
   scene-input:
     runs-on: ubuntu-latest
     steps:
@@ -73,6 +76,20 @@ jobs:
             src/SetPlayerGlobals.c src/SetNumPlayers.c \
             port/android/tests/start_file_test.c -o /tmp/start_file_test
           /tmp/start_file_test
+      - name: Execute original actor init and behavior Process with native callbacks
+        run: |
+          python3 port/android/source_gen.py --source src/func_0204335c.c --out /tmp/native-process
+          python3 port/android/source_gen.py --source src/func_02043288.c --out /tmp/native-process
+          g++ -std=c++17 -Wall -Wextra -Werror -Iport -Iinclude -Iport/ntr/include \
+            /tmp/native-process/src/func_0204335c.cpp /tmp/native-process/src/func_02043288.cpp \
+            port/android/tests/actor_process_test.cpp -o /tmp/actor_process_test
+          /tmp/actor_process_test
+      - name: Verify preserved native extern views and PC/Android Ctrl fan-out
+        run: |
+          python3 port/android/tests/native_imports_test.py
+          g++ -std=c++17 -Wall -Wextra -Werror -Iport \
+            port/android/tests/ctrl_publish_test.cpp -o /tmp/ctrl_publish_test
+          /tmp/ctrl_publish_test
       - name: Verify committed target and original Stage boot ordering
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Iport \
@@ -108,6 +125,20 @@ jobs:
             port/hal/sdat/mixer.cpp port/hal/sdat/sseq.cpp port/hal/sdat/sdat.cpp \
             port/android/tests/audio_clock_test.cpp -Wl,--gc-sections -o /tmp/audio_clock_test
           /tmp/audio_clock_test
+  backup-medium:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Persist real PC backup medium across processes using synthetic data
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -DSM64DS_PLATFORM_ANDROID=1 \
+            -DNTR_BACKUP_MEDIUM_ONLY=1 -Iport -Iport/ntr/include \
+            port/ntr/backup.cpp port/android/tests/backup_medium_test.cpp \
+            -o /tmp/backup_medium_test
+          save_test_dir=$(mktemp -d)
+          trap 'rm -rf "$save_test_dir"' EXIT
+          SM64DS_ASSET_ROOT="$save_test_dir" /tmp/backup_medium_test write
+          SM64DS_ASSET_ROOT="$save_test_dir" /tmp/backup_medium_test read
   android-native:
     runs-on: ubuntu-latest
     steps:
@@ -136,6 +167,13 @@ jobs:
         run: |
           python3 port/android/check_game_layout.py --build build/android-armv7 \
             --nm "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-nm"
+      - name: Execute original fallthrough hooks on ARM CPU (not Android OS)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-user
+          python3 port/android/tests/verify_arm_codegen.py \
+            --clang "$ANDROID_HOME/ndk/27.2.12479018/toolchains/llvm/prebuilt/linux-x86_64/bin/armv7a-linux-androideabi28-clang++" \
+            --qemu qemu-arm --out build/android-armv7/native_fallthrough_cpu_test
       - uses: actions/upload-artifact@v4
         with:
           name: sm64ds-android-armv7-components-NOT-APK
@@ -148,6 +186,8 @@ jobs:
             build/android-classes/**
             build/android-armv7/android_runtime_test
             build/android-armv7/android_game_abi_test
+            build/android-armv7/android_actor_process_test
+            build/android-armv7/native_fallthrough_cpu_test
           if-no-files-found: error
       - name: Require complete game link (reports current unresolved dependencies)
         run: python3 port/android/check_game_link.py --build build/android-armv7

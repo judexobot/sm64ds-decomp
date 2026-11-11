@@ -3266,8 +3266,14 @@ void port_ov007_b7764_endingfly(void)
 { func_ov007_020c3d1c((void *)(size_t)data_ov007_02103448); }
 }
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
+// MSVC distinguishes the historical void face from the real int-returning
+// Player state. Native Itanium does not mangle return types. The ov007
+// sources now call their actual teardown function explicitly; Android must
+// retain the real Player state, not this obsolete name bridge.
 void Player::St_EndingFly_Main()
 { func_ov007_020c3d1c(this); }
+#endif
 
 // ---- the shared eleven -----------------------------------------------------
 static int  __fastcall sc_binit(void *s PORT_EDX)

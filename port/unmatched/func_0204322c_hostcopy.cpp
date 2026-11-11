@@ -27,25 +27,27 @@
  *     After(code);
  *     return r;
  */
+#include "hal/host_call.h"
+#include <cstddef>
 extern "C" {
 
-typedef int(__fastcall *ActorSlot0)(void *self, void *dummy);
-typedef void(__fastcall *ActorSlot2)(void *self, void *dummy, unsigned code);
+typedef int(__fastcall *ActorSlot0)(void *self PORT_EDX_NAMED(dummy));
+typedef void(__fastcall *ActorSlot2)(void *self PORT_EDX_NAMED(dummy), unsigned code);
 
 void func_0204302c(void *id);
 
 static int port_actor_process(void *self, int main_, int before, int after)
 {
     void **vt = *(void ***)self;
-    int r = ((ActorSlot0)vt[before])(self, 0);
+    int r = ((ActorSlot0)vt[before])(self PORT_EDX_ARG(0));
     unsigned code;
     if (r != 0) {
-        r = ((ActorSlot0)vt[main_])(self, 0);
+        r = ((ActorSlot0)vt[main_])(self PORT_EDX_ARG(0));
         code = r == -1 ? 3u : r == 1 ? 2u : 1u;
     } else {
         code = 0;
     }
-    ((ActorSlot2)vt[after])(self, 0, code);
+    ((ActorSlot2)vt[after])(self PORT_EDX_ARG(0), code);
     return r;
 }
 

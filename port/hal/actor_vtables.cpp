@@ -8,6 +8,7 @@
 // Base-class vtable symbols the ctor chain installs and then overwrites
 // (never dispatched between installs) are plain storage.
 #include <stdio.h>
+#include "host_call.h"
 #include "vs_width.h"   /* run vs16: the port's player width */
 #include <stdlib.h>
 
@@ -20,37 +21,37 @@
 // calls QUALIFIED -- never virtual.
 extern "C" int _ZN14ArrowSignRight13InitResourcesEv(char *self);
 
-static int __fastcall sl_init(void *self, void *)
+static int __fastcall sl_init(void *self PORT_EDX)
 { return _ZN14ArrowSignRight13InitResourcesEv((char *)self); }
-static int __fastcall sl_cleanup(void *self, void *)
+static int __fastcall sl_cleanup(void *self PORT_EDX)
 { return ((ArrowSignRight *)self)->ArrowSignRight::CleanupResources(); }
-static int __fastcall sl_behavior(void *self, void *)
+static int __fastcall sl_behavior(void *self PORT_EDX)
 { return ((ArrowSignRight *)self)->ArrowSignRight::Behavior(); }
-static int __fastcall sl_render(void *self, void *)
+static int __fastcall sl_render(void *self PORT_EDX)
 { return ((ArrowSignRight *)self)->ArrowSignRight::Render(); }
-static int __fastcall sl_binit(void *self, void *)
+static int __fastcall sl_binit(void *self PORT_EDX)
 { return ((fBase_c *)self)->fBase_c::BeforeInitResources(); }
-static void __fastcall sl_ainit(void *self, void *, u32 a)
+static void __fastcall sl_ainit(void *self PORT_EDX, u32 a)
 { ((fBase_c *)self)->fBase_c::AfterInitResources(a); }
-static int __fastcall sl_bclean(void *self, void *)
+static int __fastcall sl_bclean(void *self PORT_EDX)
 { return ((fBase_c *)self)->fBase_c::BeforeCleanupResources(); }
-static void __fastcall sl_aclean(void *self, void *, u32 a)
+static void __fastcall sl_aclean(void *self PORT_EDX, u32 a)
 { ((fBase_c *)self)->fBase_c::AfterCleanupResources(a); }
-static int __fastcall sl_bbeh(void *self, void *)
+static int __fastcall sl_bbeh(void *self PORT_EDX)
 { return ((fBase_c *)self)->fBase_c::BeforeBehavior(); }
-static void __fastcall sl_abeh(void *self, void *, u32 a)
+static void __fastcall sl_abeh(void *self PORT_EDX, u32 a)
 { ((fBase_c *)self)->fBase_c::AfterBehavior(a); }
-static int __fastcall sl_bren(void *self, void *)
+static int __fastcall sl_bren(void *self PORT_EDX)
 { return ((fBase_c *)self)->fBase_c::BeforeRender(); }
-static void __fastcall sl_aren(void *self, void *, u32 a)
+static void __fastcall sl_aren(void *self PORT_EDX, u32 a)
 { ((fBase_c *)self)->fBase_c::AfterRender(a); }
-static int __fastcall sl_pdes(void *self, void *)
+static int __fastcall sl_pdes(void *self PORT_EDX)
 { ((fBase_c *)self)->fBase_c::OnPendingDestroy(); return 0; }
-static int __fastcall sl_heap(void *self, void *)
+static int __fastcall sl_heap(void *self PORT_EDX)
 { return ((fBase_c *)self)->fBase_c::OnHeapCreated(); }
 
 #define ATRAP(n) \
-    static void __fastcall a_trap##n(void *, void *) { \
+    static void __fastcall a_trap##n(void * PORT_EDX) { \
         fprintf(stderr, "FATAL: ArrowSignRight vtable slot %d trap\n", n); \
         abort(); }
 ATRAP(13) ATRAP(14) ATRAP(16) ATRAP(17)
@@ -251,6 +252,9 @@ int data_0209b468[4];      /* actor list head the ctor links into */
 
 extern "C" {
 unsigned char data_0209f2d8_c;   /* mega-char state byte: none */
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_ALIAS(data_0209f2d8, data_0209f2d8_c, 0, 1);
+#endif
 int data_0209ceec[4];            /* shadow scale globals */
 int data_0209cef4[4];
 }
@@ -366,8 +370,10 @@ class Heap {
 public:
     void Destroy();
 };
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void _ZN4Heap7DestroyEv(void *thiz)
 { ((Heap *)thiz)->Heap::Destroy(); }
+#endif // Native source already publishes this Itanium symbol.
 
 extern "C" {
 int func_0204424c(char *c);
@@ -507,8 +513,13 @@ unsigned char data_02092128[0x40];
    class is an Actor subclass, so 0x400 covers it with room.
    Verified regression-free: the eight walk probes come back
    byte-identical with this non-null. */
+#if defined(SM64DS_PLATFORM_ANDROID)
+// Require the real Camera initialization before any actor uses the pointer.
+void *data_0209f318 = nullptr;
+#else
 __declspec(align(8)) static unsigned char HAL_CAMERA[0x400];
 void *data_0209f318 = HAL_CAMERA;
+#endif
 /* run mg16 lane MP3, field failure 2: FULL-EXTENT BACKING, for exactly the
    reason the paragraph below already gives for data_0209f4ac/data_0209f4ae.
    These three are per-player Ctrl fields on the DS -- held buttons at
@@ -575,7 +586,9 @@ extern "C" {
    src/_s32_div_f.c, a bannered HAND-ASM PRIMITIVE -- run linkw wave 9
    (lane w9-harvest) checked: it is an ARM asm block, so it cannot replace
    this host body no matter how the port catches up to main. */
+#if !defined(SM64DS_PLATFORM_ANDROID)
 int __aeabi_idiv(int n, int d) { return d ? n / d : 0; }
+#endif // ARM division would call this symbol recursively; use compiler-rt.
 void *_ZTV7dCcAc_c[12];
 
 /* gate-10 BSS ring (spawn/camera/collision-config globals; zeros are the

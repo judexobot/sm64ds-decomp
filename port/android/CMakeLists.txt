@@ -64,6 +64,14 @@ add_library(sm64ds_android_game_flow STATIC
   ../hal/stage_bridges.cpp ../../src/d_s_stage.cpp
   ../hal/title_vtable_seat14d.cpp
   ../hal/scene_actor_faces.cpp
+  ../hal/auto_bss.cpp ../hal/heap_globals.cpp ../hal/os_arena.cpp
+  ../hal/heap_vtable.cpp ../hal/boot_hw.cpp ../hal/cstd_div.c
+  ../hal/nitrofs_boot.cpp
+  ../hal/actor_registry.cpp ../unmatched/func_0204322c_hostcopy.cpp
+  ../hal/actor_vtables.cpp
+  ../unmatched/func_02043fdc_hostcopy.cpp
+  ../hal/stage_frame.cpp ../hal/message_pump.cpp stage_ctrl.cpp
+  ../ntr/backup.cpp ../hal/globals_link100.cpp
   ../../src/d_s_dsmt.c
   ../../src/_ZN9dScDSMT_c8BehaviorEv.cpp
   ../../src/_ZN9dScDSMT_c6RenderEv.cpp
@@ -103,7 +111,7 @@ target_include_directories(sm64ds_android_game_flow PUBLIC
 target_link_options(sm64ds_android_game_flow INTERFACE
   "LINKER:-T,${CMAKE_CURRENT_SOURCE_DIR}/dsstate.ld")
 target_link_libraries(sm64ds_android_game_flow
-  PRIVATE sm64ds_android_core)
+  PRIVATE sm64ds_android_core dl)
 
 # The same ROM-clean separation used by the shipping PC port:
 # no Nintendo bytes in Android libraries. The generated romdata_dispatch.c
@@ -115,7 +123,23 @@ target_compile_definitions(sm64ds_android_game_flow PRIVATE PORT_ROM_CLEAN=1)
 # explicit storage tokens only; compiler-generated C++ symbols stay native.
 target_compile_definitions(sm64ds_android_game_flow PRIVATE
   _ZTV8dScene_c=port_vt_scene_rom
+  _ZTV5Stage=port_vt_stage_rom
+  _ZTV13ExpandingHeap=port_vt_expanding_heap_rom
   SM64DS_STAGE_SLOT6_ROM=1 SM64DS_STAGE_SLOT9_ROM=1)
+target_compile_options(sm64ds_android_game_flow PRIVATE
+  -Wno-register -fwrapv -fno-strict-aliasing
+  "$<$<COMPILE_LANGUAGE:CXX>:-fno-strict-return>")
+# mwcc permits value-declared hooks that leave r0 untouched. Keep diagnostics,
+# but do not let Clang turn their fallthrough into unreachable code. This
+# supplies no invented return value; callers consuming residue need auditing.
+# Do not let weak compiler vtables accidentally satisfy explicit DS table
+# references. Those references require the real PC table seats/relocations.
+file(GLOB_RECURSE rom_symbol_configs CONFIGURE_DEPENDS "../../config/*/symbols.txt")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS rom_vtables.py ${rom_symbol_configs})
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/rom_vtables.py"
+  --out "${CMAKE_CURRENT_BINARY_DIR}/rom_vtables.h" COMMAND_ERROR_IS_FATAL ANY)
+target_compile_options(sm64ds_android_game_flow PRIVATE
+  -include "${CMAKE_CURRENT_BINARY_DIR}/rom_vtables.h")
 # Reuse the original Nintendo DS 16-voice SDAT mixer with Android AAudio,
 # NOT Windows' out_win.cpp or any substitute synthesized tracks.
 target_link_libraries(sm64ds_android_game_flow PRIVATE sm64ds_android_audio)
@@ -153,6 +177,49 @@ foreach(source IN ITEMS
   target_sources(sm64ds_android_game_flow PRIVATE "${generated}")
 endforeach()
 
+# Real source closure from PC's walk_window target. Keep recovered definitions
+# and the existing PC host transformations; isolate mwcc-only conflicting
+# extern views in merged ordinal TUs without changing byte-matched src/.
+file(STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/game_sources.txt" game_sources)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS game_sources.txt source_gen.py native_imports.py)
+execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/source_gen.py" --list-splits
+  OUTPUT_VARIABLE split_sources OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+string(REPLACE "\n" ";" split_sources "${split_sources}")
+foreach(source IN LISTS game_sources)
+  if(source MATCHES "^#" OR source STREQUAL "")
+    continue()
+  endif()
+  if(source MATCHES "^c (src/.+\\.c)$")
+    target_sources(sm64ds_android_game_flow PRIVATE "../../${CMAKE_MATCH_1}")
+    continue()
+  endif()
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "../../${source}")
+  if(source IN_LIST split_sources)
+    execute_process(COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/source_gen.py"
+      --source "${source}" --out "${CMAKE_CURRENT_BINARY_DIR}/native-src" --list
+      OUTPUT_VARIABLE generated_list OUTPUT_STRIP_TRAILING_WHITESPACE COMMAND_ERROR_IS_FATAL ANY)
+    string(REPLACE "\n" ";" generated_list "${generated_list}")
+  else()
+    string(REGEX REPLACE "\\.c$" ".cpp" generated_list "${source}")
+    set(generated_list "${CMAKE_CURRENT_BINARY_DIR}/native-src/${generated_list}")
+  endif()
+  add_custom_command(OUTPUT ${generated_list}
+    COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/source_gen.py"
+      --source "${source}" --out "${CMAKE_CURRENT_BINARY_DIR}/native-src"
+    DEPENDS source_gen.py native_imports.py rom_vtables.py ../../tools/check_decl_agreement.py ../tools/hostgen.py "../../${source}"
+    VERBATIM)
+  target_sources(sm64ds_android_game_flow PRIVATE ${generated_list})
+endforeach()
+
+# Unit executable using the actual generated original Process implementations.
+# It must also be RUN on an Android runtime before claiming device validation.
+add_executable(android_actor_process_test tests/actor_process_test.cpp
+  "${CMAKE_CURRENT_BINARY_DIR}/native-src/src/func_0204335c.cpp"
+  "${CMAKE_CURRENT_BINARY_DIR}/native-src/src/func_02043288.cpp")
+target_include_directories(android_actor_process_test PRIVATE ../../include)
+target_link_libraries(android_actor_process_test PRIVATE sm64ds_android_core)
+target_compile_options(android_actor_process_test PRIVATE -UNDEBUG)
+
 # Deliberately strict, EXPLICIT whole-game link test. A static archive accepts
 # undefined symbols and unused archive members can hide missing game code.
 # Build this target to expose the current closure; never package this probe
@@ -166,7 +233,7 @@ target_link_libraries(sm64ds_android_game_link_check PRIVATE
   sm64ds_android_audio sm64ds_android_core
   "-Wl,--no-whole-archive" android log aaudio)
 target_link_options(sm64ds_android_game_link_check PRIVATE
-  "LINKER:--no-undefined" "LINKER:--error-limit=0")
+  "LINKER:--no-undefined" "LINKER:--error-limit=0" "LINKER:--no-demangle")
 set_property(TARGET sm64ds_android_game_link_check APPEND PROPERTY
   LINK_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/dsstate.ld")
 

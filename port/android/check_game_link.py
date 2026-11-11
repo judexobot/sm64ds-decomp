@@ -9,6 +9,11 @@ import json
 import pathlib
 import re
 import subprocess
+import sys
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "tools"))
+import srcpath
 
 
 def main():
@@ -27,6 +32,15 @@ def main():
     report = {"status": status, "command": command, "exit_code": proc.returncode,
               "undefined_count": len(undefined), "undefined_symbols": undefined,
               "duplicate_symbols": duplicates, "playable_apk": False}
+    # --no-demangle gives stable, exact symbols rather than ambiguous C++
+    # display names. Attach original ownership without guessing a substitute.
+    owners = []
+    for symbol in undefined:
+        source = srcpath.path_for(symbol)
+        owners.append({"symbol": symbol,
+                       "original_source": source.relative_to(ROOT).as_posix() if source else None,
+                       "raw_ds_vtable": symbol.startswith(("port_rom_ZTV", "port_vt_"))})
+    report["pending_dependencies"] = owners
     (args.build / "game-link.json").write_text(json.dumps(report, indent=2) + "\n")
     print(f"Game link: {status}; {len(undefined)} undefined, {len(duplicates)} duplicate symbols.")
     print(f"Full diagnostics: {args.build / 'game-link.log'}")

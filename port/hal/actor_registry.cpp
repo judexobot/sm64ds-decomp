@@ -51,8 +51,12 @@
 #include <cstdlib>
 #include <cstring>
 
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
 extern "C" {
 
@@ -673,7 +677,13 @@ static void port_vt_audit(void)
     armed = 0;
     unsigned char seen[PORT_ACTOR_IDS];
     std::memset(seen, 0, sizeof seen);
+#if defined(_WIN32)
     char *base = (char *)(size_t)GetModuleHandleA(0);
+#else
+    Dl_info module{};
+    dladdr(reinterpret_cast<void *>(&port_vt_audit), &module);
+    char *base = static_cast<char *>(module.dli_fbase);
+#endif
     int n = 0;
 
     /* The set this audit walks has to be the set the CALLER can reach.

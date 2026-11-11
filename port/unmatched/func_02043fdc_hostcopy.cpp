@@ -29,8 +29,11 @@ extern int data_020a4b68[];        /* the walk's published cursor
 void port_scene_canary(const char *where);
 void port_list_canary(int *node, int index);
 }
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
+#include "hal/readable_guard.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -110,12 +113,12 @@ extern "C" void port_list_canary(int *node, int index)
     unsigned first = 0, size = 0;
     unsigned id = 0xffffu;
     int bad = 1;
-    if (owner != 0 && !IsBadReadPtr(owner, 0x10)) {
+    if (owner != 0 && !port_host_bad_read_ptr(owner, 0x10)) {
         first = *(unsigned *)owner;
         id = *(unsigned short *)(owner + 0xc);
-        if (!IsBadReadPtr(owner - 0x10, 8))
+        if (!port_host_bad_read_ptr(owner - 0x10, 8))
             size = *(unsigned *)(owner - 0xc);
-        if (first >= 0x00400000u && !IsBadReadPtr((void *)(size_t)first, 4))
+        if (first >= 0x00400000u && !port_host_bad_read_ptr((void *)(size_t)first, 4))
             bad = 0;
     }
     if (!bad && walk > 2) return;
@@ -208,6 +211,7 @@ void port_fader_watch(void *actor)
  * dump lands beside it under the same directory.
  * =========================================================================== */
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" signed char data_0209f2f8;                 /* current level */
 /* class-name lookup goes through the same weak DATA resolver fault_probe.h uses
    (set by hal/actor_registry.cpp in walk_window; null in a bare smoke, which
@@ -859,6 +863,40 @@ extern "C" int port_quarantine_is_frozen(void *actor)
 {
     return port_q_is_frozen(actor);
 }
+#else
+// Android has no Windows SEH recovery. Every actor executes the same Process
+// callback; a missing slot/state aborts with its real diagnostic instead of
+// freezing that actor and allowing a broken level to appear playable.
+static_assert(sizeof(void *) == 4, "the original intrusive lists store ARM32 pointers");
+typedef const char *(*port_classname_fn)(unsigned id);
+port_classname_fn port_classname_resolver = nullptr;
+static void *port_native_receiver;
+void *port_actor_interaction_begin(void *receiver) {
+    void *previous = port_native_receiver;
+    port_native_receiver = receiver;
+    return previous;
+}
+void port_actor_interaction_end(void *previous) { port_native_receiver = previous; }
+void port_actor_slot_decline(const char *what) {
+    std::fprintf(stderr, "[Android actor fatal] receiver=%p: %s\n",
+                 port_native_receiver, what ? what : "unavailable slot/state");
+    std::fflush(stderr);
+    std::abort();
+}
+void port_actor_slot_decline_for(void *actor, const char *what) {
+    port_native_receiver = actor;
+    port_actor_slot_decline(what);
+}
+static int port_dispatch_guarded(PortListFn fn, void *actor) {
+    port_native_receiver = actor;
+    fn(actor);
+    port_native_receiver = nullptr;
+    return 0;
+}
+int port_quarantine_frozen_count(void) { return 0; }
+int port_quarantine_is_frozen(void *) { return 0; }
+void port_quarantine_reset(void) { port_native_receiver = nullptr; }
+#endif
 
 /* PORT_HOST_ABI: mwcc pointer-to-member dispatch: each list head carries its
  * callback as an eight-byte PMF pair MSVC cannot represent. See the header.

@@ -1,11 +1,97 @@
 # Android integration evidence — 2026-11-11
 
-Branch: `android/game-port`, continuing `26ef77e563a19f678a5bf9ffa9af3fe5b48aa285`.
+Branch: `android/game-port`, continuing `5408be3f7264b51e03a10cd45c44c1479e72d05a`.
 No playable APK exists. The running JNI `.so` still contains renderer/input/ROM
 services; the complete game is not linked into it. No ROM or Nintendo media
 was available, fetched, committed or included in test artifacts.
 
-## Implemented in this iteration
+## Current actor/Stage integration iteration
+
+* `android/game_sources.txt` enrolls **2,865 additional original PC source
+  files**, selected against the configured PC `walk_window` target and the
+  actual native link imports. Four original draw/VS-loop bodies deliberately
+  replace PC seams: Stage::PS_Render, LC_Render, RenderVsModeNewStar and
+  func_020199a4. No matched `src/` or shared `include/` file changed here.
+* `source_gen.py` retains PC hostgen's MMIO and host repairs. Player.cpp is
+  transformed first, then its 301 ordinal definitions are compiled separately
+  with their common declarations. The actual ARM archive defines all **301**.
+  Eight other merged actor TUs keep their recovered local extern signatures
+  through scoped identifiers with the original ELF labels. Source drift or
+  unaudited x86 callbacks fails generation. Compatible C-only TUs stay C.
+* `rom_vtables.py` separates every explicit raw DS vtable token from native
+  compiler vtables, including asm-labelled imports. Otherwise a weak native
+  table could satisfy a DS address-point reference while dispatching its
+  offset/RTTI prefix as code. A compiled fixture verifies this distinction.
+* `stage_frame.cpp` now builds on Android: its behavior/render entries call
+  the actual Stage methods. Android excludes the OAM/Message recursive
+  name bridges and the four PC no-op/log-only seams in favor of originals.
+  Their actual sprite templates remain unresolved, not replaced with art.
+* PC and Android share `ctrl_publish_records`: held/pressed, stick and touch
+  fields are copied after original Stage::Behavior at the DS 0x18 stride.
+  Android still uses button-mode input here; the full level frame loop and
+  analog/camera integration remain unfinished.
+* Native actor registry, init/behavior/render/cleanup Process wrappers,
+  intrusive-list walkers, fBase constructor transcription, and actor/heap
+  storage now compile. Android reports fatal unavailable actor slots instead
+  of Windows SEH quarantine. Recursive native Heap/NestedHeapIterator bridges
+  are excluded; real originals remain required. ARM SWP uses an atomic exchange.
+* Additional packed backing objects preserve touch records (64 bytes) and
+  CARDiCommon (1,508 bytes) with exact ELF aliases. Heap iterator/default heap
+  and the mode byte use shared storage aliases; the iterator is word aligned.
+  Clang uses `-fno-strict-return` for mwcc fallthrough semantics, retaining
+  diagnostics without inventing return values. Actual OAM and five base actor
+  hooks execute successfully under ARM CPU translation with this setting.
+* The original PC `ntr/backup.cpp` medium and command adapter now compile for
+  Android. Card initialization copies into the full backing object so fortify
+  sees its real extent. Saves resolve under the private asset root, sync file
+  contents before replacing the image, and retain the original SaveData policy.
+  The medium test persists synthetic bytes across two separate processes and
+  checks erased cells, bounds/wrap refusal and the exact 8,192-byte image.
+* The final import API is `RomImporter.importAndPrepareEuropeanRom`: the player
+  selects **only their ASMP ROM**. The APK must bundle its exact data-free recipe
+  and manifest under `assets/sm64ds/`; `RomDataKit` stages them privately and the
+  existing SHA-checked rebuilder prepares assets. It rejects UI-thread calls
+  and cleans staging files on success/failure. A validated replacement clears
+  the old readiness marker before extraction. There is no metadata file picker.
+
+Current local evidence: NDK r27c Release component build and three Android
+unit executables **compile**; 16 host workflow steps pass; Java API35 compilation,
+packed ELF checks and all 301 Player definitions pass. The ARM CPU-only test
+executes actual original hooks, bypassing Android libc initialization; normal
+Android startup under local QEMU is blocked by the container's personality
+restriction. No Android executable has been run on a phone.
+
+The strict whole-archive game link currently reports **2,846 unresolved
+symbols, zero duplicates**; 194 are explicitly separated raw DS vtable imports.
+The larger closure exposes additional dependencies compared with the previous
+952-symbol snapshot; counts across these different inputs are not a gameplay
+progress metric. `game-link.json` now records exact undecorated ELF names and
+original source ownership where known.
+
+Important remaining boundaries:
+
+* PC overlay/ROM-data emitters and exact recipe/manifest/dispatch are still
+  missing from this Android build. No reference ROM or matching public kit was
+  available; no hash, artwork, data bytes or metadata was fabricated. The new
+  automatic importer is tested synthetically, not against real game resources.
+* PC hostgen deliberately parks several definitions for corrected host copies.
+  Those replacements still need their own native integration, including
+  daObjBSwdoor_c_classInit, daWanwan_c_classInit, func_ov084_0212f204 and
+  func_ov096_02135e2c. Native dScGameOver_c D1 emission also needs a proper seat.
+  Compiling a merged TU does not prove all of its parked definitions exist.
+* Other pending families include filesystem/overlay mounts, raw actor vtable
+  seats, model/collision adapters, camera state dispatch, heap, ARM context
+  services, lower-screen/HUD composition and original minigame closures.
+* The title handoff still terminates in `level_loop_required`. Full Stage
+  InitResources must replace the hosted subset without loading twice. The
+  gameplay loop, Android game thread/lifecycle and real AAudio/save integration
+  are not yet running through JNI. The JNI `.so` remains services only.
+
+The 16 host steps, ARM code execution and stricter layout/link reports are wired
+into `android-native.yml`. Artifacts remain labelled components-NOT-APK. No APK
+is produced or described as playable.
+
+## Previous scene/Stage groundwork (`5408be3`)
 
 * `hal/scene_boot.cpp`, `hal/level_boot.cpp`, `hal/stage_bridges.cpp` and
   `hal/title_vtable_seat14d.cpp` now compile under NDK r27c, ARMv7/API 28.
@@ -41,7 +127,7 @@ was available, fetched, committed or included in test artifacts.
   in `level_loop_required`, **not** running gameplay, until the gameplay frame
   loop is integrated. It never re-ticks the dead title or boots twice.
 
-## Verification
+## Previous iteration verification
 
 * NDK r27c Release cross-build passed: renderer/input JNI `.so`, all component
   `.a` archives, and both Android test executables. Android executables were
@@ -67,9 +153,9 @@ was available, fetched, committed or included in test artifacts.
   verdict. `port_refcheck.py` also fails on the existing PC CMake parser's
   unsupported `cmake_parse_arguments`; no sources were renamed or moved.
 
-## Full-game link: blocked
+## Previous link snapshot (superseded above)
 
-The current whole-archive link reports **952 unique unresolved symbols and
+That iteration's whole-archive link reported **952 unique unresolved symbols and
 zero duplicates**. `check_game_link.py` preserves every linker reference in
 `game-link.log` and the symbol inventory in `game-link.json`, and exits nonzero.
 CI uploads those reports even on failure. Components are labelled NOT-APK.

@@ -306,7 +306,8 @@ struct PortMemCounters {
    DualShock, DualSense, generic HID). Both DLLs are loaded dynamically there,
    like user32 here. */
 #include "hal/pad_backend.h"
-#include "hal/scene_frame_shared.h"  /* shared PC/Android original scene-frame order */
+#include "hal/scene_frame_shared.h"
+#include "hal/ctrl_publish_shared.h"  /* shared PC/Android original scene-frame order */
 #include "hal/title_handoff_shared.h"  /* shared ROM StartFile/level handoff */
 #include "hal/level_handoff_shared.h"
 typedef PortPadState XPad;
@@ -8518,26 +8519,9 @@ extern "C" void port_frame_ctrl_publish(void)
                    in a wide match -- their records arrived and were never
                    fanned out, so every peer agreed they stood still. */
                 if (np > kPortMaxPlayers) np = kPortMaxPlayers;
-                for (int pi = 0; pi < np; ++pi) {
-                    const char *r = q + pi * 0x18;
-                    const int o = pi * 0x18;
-                    /* THE BUTTONS, and leaving them out was the second input
-                       seam. Ctrl+0x04 is the HELD word and +0x06 is
-                       pressed-this-frame, and they are what every button
-                       reader in the game uses -- crouch among them. Fanning
-                       the stick fields and not these meant movement routed to
-                       the right player and one button family did not: crouch
-                       in the child's window crouched MARIO in the child's
-                       world. Same one-line character as the PadData[0]
-                       clobber, one layer further in. */
-                    *(short *)((char *)data_0209f49c + o) = *(const short *)(r + 0x04);
-                    *(short *)((char *)data_0209f49e + o) = *(const short *)(r + 0x06);
-                    *(short *)((char *)data_0209f4a0 + o) = *(const short *)(r + 0x08);
-                    *(short *)((char *)data_0209f4a2 + o) = *(const short *)(r + 0x0a);
-                    *(short *)((char *)data_0209f4a4 + o) = *(const short *)(r + 0x0c);
-                    *(short *)((char *)data_0209f4a6 + o) = *(const short *)(r + 0x0e);
-                    *((unsigned char *)data_0209f4ac + o) = *(const unsigned char *)(r + 0x14);
-                }
+                sm64ds_port::ctrl_publish_records(q, np,
+                    data_0209f49c, data_0209f49e, data_0209f4a0,
+                    data_0209f4a2, data_0209f4a4, data_0209f4a6, data_0209f4ac);
             }
             /* ---- RUN MODE ANALOG: the record, refilled from the pad's left
                stick. See the RUN_ mode block up by the menu enum for why this

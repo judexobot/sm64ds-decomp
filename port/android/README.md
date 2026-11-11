@@ -17,7 +17,7 @@ to a Win32 frontend.
 - Local import of user's own European ASMP .nds, with FAT/FNT validation.
 - On-device PC HAL resource preparation: files.tsv, handles.tsv recovered
   from overlay 0 (including BLZ), original NitroFS tables, extracted named
-  files, game overlay modules and decompressed ARM9/ARM7 images.
+  files, BLZ-decoded game overlay modules, decompressed ARM9 and raw ARM7.
 - Pure Java ROM-clean data reconstruction from a **matching, byte-free PC
   kit recipe + manifest** (`RomDataRebuilder`) with SHA-256 validation per
   symbol and for the entire romdata.bin. The exact recipe/manifest for this
@@ -49,8 +49,8 @@ to a Win32 frontend.
   the Android View classes; ARMv7 native .so/.a cross-compilation in CI.
 
 The CI artifact is a native library / Java classes and tests, *not* a game APK.
-The synthetic CI test reconstructs an eight-byte blob from fake cartridge
-samples; it does NOT confirm the actual EUR ROM or PC recipe.
+The synthetic CI test reconstructs a ten-byte blob including zero-filled
+BSS from fake cartridge samples; it does NOT confirm the actual EUR ROM or PC recipe.
 There is deliberately no mock game Activity and no fake playable artifact.
 
 ## Using your own ROM

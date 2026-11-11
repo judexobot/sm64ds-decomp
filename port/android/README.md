@@ -8,7 +8,11 @@ to a Win32 frontend.
 ## Real Android components now in the branch
 
 - Android NDK ARMv7 build, maintaining the game's 32-bit ABI.
-- Cooperative ARMv7 VBlank fiber/scheduler implementation.
+- Cooperative ARMv7 VBlank fiber/scheduler implementation, now using
+  the PC port's real NTR interrupt-handler registry and HBlank scanline
+  semantics (all 263 lines, 5 gates, IRQ mode hooks, fade-window writes).
+  These are cross-compiled and linked, but still require Android runtime
+  testing on hardware.
 - Real NTR filesystem, BMD, GX/PPU, texturing, IPC and LZ77 engine modules.
 - Local import of user's own European ASMP .nds, with FAT/FNT validation.
 - SurfaceView + transparent TouchControlsView for Android portrait/landscape

@@ -58,8 +58,42 @@ bool allocate_game_stack() {
     g.game_sp = saved;
     return true;
 }
+// Shared semantics with the PC rt.cpp HBlank path: a registered IRQ handler
+// must see DISPSTAT's HBlank status bit on each scanline, including the 71
+// non-visible lines, or wipe transitions never swap their line buffers.
+constexpr uint32_t DISPSTAT = 0x04000004u;
+constexpr uint32_t WIN0H = 0x04000040u;
+constexpr uint32_t WIN0H_SUB = 0x04001040u;
+constexpr uint16_t HBLANK_STATUS = 0x0002u;
+uint64_t hblank_deliveries = 0, hblank_window_writes = 0, hblank_modeask = 0;
+void (*irq_mode_enter)() = nullptr;
+void (*irq_mode_exit)() = nullptr;
+uint16_t (*irq_pending_flag_read)() = nullptr;
+
 void run_scanlines() {
-    for (uint16_t line = 0; line < 263; ++line) r16(VCOUNT) = line;
+    for (uint16_t line = 0; line < 263; ++line) {
+        r16(VCOUNT) = line;
+        // runtime.cpp's original IRQ registry makes this exact 5-gate
+        // decision, including handler, IE, IME, DISPSTAT and CPSR I bit.
+        if (!rt_hblank_armed()) continue;
+        const uint32_t main_before = r32(WIN0H);
+        const uint32_t sub_before = r32(WIN0H_SUB);
+        r16(DISPSTAT) |= HBLANK_STATUS;
+        r32(IF) |= IRQ_HBLANK;
+        const bool pending_before =
+            irq_pending_flag_read && irq_pending_flag_read() != 0;
+        if (irq_mode_enter) irq_mode_enter();
+        rt_hblank_dispatch();
+        if (irq_mode_exit) irq_mode_exit();
+        if (!pending_before && irq_pending_flag_read &&
+            irq_pending_flag_read() != 0)
+            ++hblank_modeask;
+        r32(IF) &= ~IRQ_HBLANK;
+        r16(DISPSTAT) &= ~HBLANK_STATUS;
+        ++hblank_deliveries;
+        if (r32(WIN0H) != main_before || r32(WIN0H_SUB) != sub_before)
+            ++hblank_window_writes;
+    }
 }
 } // namespace
 
@@ -67,6 +101,28 @@ void rt_vblank_wait() {
     if (!g.running || !g.host_sp) return;
     r32(IF) |= IRQ_VBLANK;
     sm64ds_arm_switch(&g.game_sp, g.host_sp);
+}
+void rt_scanout_frame() { run_scanlines(); }
+void rt_hblank_counters(unsigned long long *deliveries,
+                        unsigned long long *window_writes) {
+    if (deliveries) *deliveries = hblank_deliveries;
+    if (window_writes) *window_writes = hblank_window_writes;
+}
+void rt_hblank_modeask(unsigned long long *modeask) {
+    if (modeask) *modeask = hblank_modeask;
+}
+void rt_install_irq_mode_hook(void (*enter)(), void (*exit)(),
+                              uint16_t (*pending_flag_read)()) {
+    irq_mode_enter = enter;
+    irq_mode_exit = exit;
+    irq_pending_flag_read = pending_flag_read;
+}
+void rt_irq_boot_state() {
+    // This seat reproduces the original boot IRQ init (as the PC rt.cpp
+    // does): VBlank enabled and IME set, without overwriting game-enabled
+    // HBlank/GXFIFO bits in the IE register.
+    r32(IME) = 1;
+    r32(IE) |= IRQ_VBLANK;
 }
 uint64_t rt_frame() { return g.frame; }
 uint32_t rt_irq_disable() {
@@ -88,13 +144,12 @@ uint64_t rt_run(void (*game)(), FrameHook hook, uint64_t max_frames) {
         return 0;
     }
     g.running = true;
-    r32(IME) = 1;
-    r32(IE) = IRQ_VBLANK;
+    rt_irq_boot_state();
     bool stop = false;
     while (!g.finished && !stop) {
         sm64ds_arm_switch(&g.host_sp, g.game_sp);
         if (g.finished) break;
-        run_scanlines();
+        rt_scanout_frame();
         ++g.frame;
         if (hook && !hook(g.frame)) stop = true;
         if (max_frames && g.frame >= max_frames) stop = true;

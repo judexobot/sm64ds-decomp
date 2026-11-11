@@ -331,9 +331,70 @@ AssetStatus prepare_pc_assets(const char *rom_path, const char *private_root, As
             return AssetStatus::write_failure;
         total += contents.size();
     }
+    // Extract actual ARM9 overlay images with their ROM-assigned IDs, using
+    // the same BLZ decoder used above for overlay 0. These are the source
+    // images expected by the PC port's romdata.recipe.tsv pipeline. No ARM
+    // program bytes are published to GitHub; all stay in app-private storage.
+    const uint32_t ovt9_off = rd32(rom.data() + 0x50);
+    const uint32_t ovt9_size = rd32(rom.data() + 0x54);
+    if (!rom_span(rom, ovt9_off, ovt9_size) || ovt9_size % 32u != 0 ||
+        ovt9_size / 32u > 512u)
+        return AssetStatus::invalid_rom_metadata;
+    const std::string overlays_folder = root + "/extracted/overlays/";
+    if (!mkdirs(overlays_folder)) return AssetStatus::write_failure;
+    std::vector<uint32_t> seen_ids;
+    for (uint32_t off = ovt9_off; off < ovt9_off + ovt9_size; off += 32) {
+        const uint8_t *row = rom.data() + off;
+        const uint32_t id = rd32(row);
+        const uint32_t ram_size = rd32(row + 8);
+        const uint32_t fid = rd32(row + 24);
+        const uint32_t flags = rd32(row + 28) >> 24;
+        if (id > 9999 || fid >= uint32_t(count) ||
+            ram_size == 0 || ram_size > MAX_OVERLAY ||
+            std::find(seen_ids.begin(), seen_ids.end(), id) != seen_ids.end())
+            return AssetStatus::bad_overlay;
+        seen_ids.push_back(id);
+        const uint32_t image_begin = rd32(rom.data() + fat + fid * 8u);
+        const uint32_t image_end = rd32(rom.data() + fat + fid * 8u + 4u);
+        if (image_end < image_begin ||
+            !rom_span(rom, image_begin, image_end - image_begin) ||
+            image_end - image_begin > MAX_OVERLAY)
+            return AssetStatus::bad_overlay;
+        std::vector<uint8_t> image(rom.begin() + image_begin,
+                                   rom.begin() + image_end);
+        if ((flags & 1u) != 0 && !decompress_overlay(&image, ram_size))
+            return AssetStatus::bad_overlay;
+        if (image.size() > ram_size) return AssetStatus::bad_overlay;
+        char name[48];
+        std::snprintf(name, sizeof name, "overlay_%04u.bin", id);
+        if (!atomic_write(overlays_folder + name, image.data(), image.size()))
+            return AssetStatus::write_failure;
+    }
+
+    // Also retain the ARM9/ARM7 sections from the user's ROM. ARM9 may
+    // require the separate BLZ/postfix step before romdata.recipe can use it;
+    // do not mislabel this raw compressed image as arm9_dec.bin.
+    const uint32_t arm9_off = rd32(rom.data() + 0x20);
+    const uint32_t arm9_size = rd32(rom.data() + 0x2c);
+    const uint32_t arm7_off = rd32(rom.data() + 0x30);
+    const uint32_t arm7_size = rd32(rom.data() + 0x3c);
+    if (arm9_off || arm9_size) {
+        if (!rom_span(rom, arm9_off, arm9_size) ||
+            !atomic_write(root + "/extracted/arm9.bin",
+                          rom.data() + arm9_off, arm9_size))
+            return AssetStatus::invalid_rom_metadata;
+    }
+    if (arm7_off || arm7_size) {
+        if (!rom_span(rom, arm7_off, arm7_size) ||
+            !atomic_write(root + "/extracted/arm7.bin",
+                          rom.data() + arm7_off, arm7_size))
+            return AssetStatus::invalid_rom_metadata;
+    }
+
     // Do not create a marker until all files and catalogs are written.
     const std::string marker = "asset-catalog-v1\t" + std::to_string(files.size()) +
-                               "\t" + std::to_string(handles.size()) + "\n";
+                               "\t" + std::to_string(handles.size()) + "\t" +
+                               std::to_string(seen_ids.size()) + "\n";
     if (!write_string(assets + "android_extract.ready", marker))
         return AssetStatus::write_failure;
     if (out) {

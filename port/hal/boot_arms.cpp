@@ -308,8 +308,16 @@ DSSTATE_END
 // memset writes are one run. The header block says what these bytes are and
 // are not; port_r2b_storage_layout() below refuses the arm if the linker did
 // not lay them where the name says.
+#if defined(_MSC_VER)
 #pragma section(".dsstate$ywmd11a", read, write)
 __declspec(allocate(".dsstate$ywmd11a")) __declspec(align(1))
+#else
+/* ELF does not sort MSVC's .dsstate$ suffixed sections. Preserve these 18
+   original DS bytes and their 1-byte alignment; the boot-time adjacency
+   checker still refuses to run until the Android memory-layout port can
+   guarantee the complete co-located .dsstate range. */
+__attribute__((section(".dsstate.ywmd11a"), aligned(1)))
+#endif
 unsigned char port_r2b_fa0_tail[18] = {0};
 
 // The memset targets that belong to other files, declared with the extents

@@ -100,7 +100,7 @@ std::vector<uint8_t> compressed_rom() {
     w32(rom, 0x244, asset_offset);
     w32(rom, 0x248, asset_offset);
     w32(rom, 0x24C, asset_offset + 4);
-    w32(rom, 0x278, 0x01000000u | unsigned(overlay.size()));
+    w32(rom, 0x27C, 0x01000000u | unsigned(overlay.size()));
     return rom;
 }
 

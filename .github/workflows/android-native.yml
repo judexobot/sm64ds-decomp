@@ -19,6 +19,16 @@ jobs:
             port/ntr/fs.cpp port/android/rom_loader.cpp \
             port/android/tests/rom_loader_test.cpp -o /tmp/rom_loader_test
           /tmp/rom_loader_test
+  touch-pad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test Android touch -> original XInput state
+        run: |
+          g++ -std=c++17 -Wall -Wextra -pthread -Iport -Iport/android \
+            port/android/touch_input.cpp port/android/tests/touch_input_test.cpp \
+            -o /tmp/touch_input_test
+          /tmp/touch_input_test
   android-native:
     runs-on: ubuntu-latest
     steps:
@@ -26,6 +36,16 @@ jobs:
       - name: Install NDK
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018"
+      - name: Install Java Android platform
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "platforms;android-35"
+      - name: Compile Android touchscreen Java sources
+        run: |
+          mkdir -p build/android-classes
+          javac -source 8 -target 8 \
+            -cp "$ANDROID_HOME/platforms/android-35/android.jar" \
+            -d build/android-classes \
+            $(find port/android/java -name '*.java')
       - name: Configure ARMv7
         run: |
           cmake -S port/android -B build/android-armv7 -G Ninja \
@@ -38,5 +58,7 @@ jobs:
           name: sm64ds-android-armv7-game-engine
           path: |
             build/android-armv7/libsm64ds_android_core.a
+            build/android-armv7/libsm64ds_android.so
+            build/android-classes/**
             build/android-armv7/android_runtime_test
           if-no-files-found: error

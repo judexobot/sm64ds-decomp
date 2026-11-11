@@ -31,6 +31,10 @@ public final class TouchControlsView extends View {
     private int width, height;
     private int buttons, xAxis, yAxis, rTrigger;
     private boolean show = true;
+    private boolean stylusEnabled, stylusDown;
+    private int stylusX, stylusY;
+    private final RectF stylusArea = new RectF();
+    private final RectF stylusNormalized = new RectF();
 
     public TouchControlsView(Context context) { this(context, null); }
     public TouchControlsView(Context context, AttributeSet attrs) {
@@ -42,12 +46,23 @@ public final class TouchControlsView extends View {
     public void setVisibleControls(boolean visible) {
         show = visible; if (!visible) release(); invalidate();
     }
+    /** Map a game-provided inset sub-screen rectangle (normalized 0..1). */
+    public void setStylusRegion(float left, float top, float right, float bottom) {
+        stylusNormalized.set(left, top, right, bottom);
+        stylusEnabled = right > left && bottom > top;
+        updateStylusRect();
+    }
+    private void updateStylusRect() {
+        stylusArea.set(stylusNormalized.left * width, stylusNormalized.top * height,
+                stylusNormalized.right * width, stylusNormalized.bottom * height);
+    }
     private void place(int i, float cx, float cy, float radius) {
         pads[i].set(cx - radius, cy - radius, cx + radius, cy + radius);
     }
     @Override protected void onSizeChanged(int w, int h, int oldw, int oldh) {
         super.onSizeChanged(w, h, oldw, oldh);
         width = w; height = h;
+        updateStylusRect();
         float unit = Math.min(w / 2.05f, h);
         float rad = unit * .064f;
         stickX = w * .17f; stickY = h * .73f; stickRadius = unit * .15f;
@@ -73,11 +88,14 @@ public final class TouchControlsView extends View {
     private void release() {
         buttons = xAxis = yAxis = rTrigger = pointers = 0;
         NativeBridge.nativeReleaseInput();
+        NativeBridge.nativeSetStylus(false, 0, 0);
+        stylusDown = false;
     }
     private void updateState() {
         int mask = 0, ax = 0, ay = 0, rt = 0;
         float sx = 0, sy = 0;
-        boolean stickHeld = false;
+        boolean stickHeld = false, stylusHeldNow = false;
+        int sxTouch = 0, syTouch = 0;
         for (int p = 0; p < pointers; p++) {
             float x = px[p], y = py[p];
             if (inStick(x, y)) {
@@ -85,12 +103,29 @@ public final class TouchControlsView extends View {
                 sx = Math.max(-1f, Math.min(1f, (x - stickX) / stickRadius));
                 sy = Math.max(-1f, Math.min(1f, (stickY - y) / stickRadius));
             }
+            if (stylusEnabled && !inStick(x, y) && stylusArea.contains(x, y)) {
+                boolean onControl = false;
+                for (RectF rect : pads) if (rect.contains(x, y)) onControl = true;
+                if (!onControl) {
+                    stylusHeldNow = true;
+                    sxTouch = Math.max(0, Math.min(255,
+                            Math.round((x - stylusArea.left) * 255f / stylusArea.width())));
+                    syTouch = Math.max(0, Math.min(191,
+                            Math.round((y - stylusArea.top) * 191f / stylusArea.height())));
+                }
+            }
             for (int i = 0; i < pads.length; i++) {
                 if (pads[i].contains(x, y)) {
                     mask |= MASKS[i];
                     if (i == 8) rt = 255;
                 }
             }
+        }
+        if (stylusDown != stylusHeldNow ||
+                (stylusHeldNow && (stylusX != sxTouch || stylusY != syTouch))) {
+            stylusDown = stylusHeldNow;
+            stylusX = sxTouch; stylusY = syTouch;
+            NativeBridge.nativeSetStylus(stylusDown, stylusX, stylusY);
         }
         if (stickHeld) {
             float len = (float) Math.hypot(sx, sy);

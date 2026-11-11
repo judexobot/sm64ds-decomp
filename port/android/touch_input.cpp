@@ -6,6 +6,7 @@ namespace sm64ds_android {
 namespace {
 std::mutex lock;
 PortPadState state = {};
+StylusState stylus = {};
 int clamp_axis(int n) { return n < -32767 ? -32767 : (n > 32767 ? 32767 : n); }
 int clamp_trigger(int n) { return n < 0 ? 0 : (n > 255 ? 255 : n); }
 }
@@ -25,6 +26,18 @@ bool touch_poll(PortPadState *out) {
     if (!out) return false;
     std::lock_guard<std::mutex> guard(lock);
     *out = state;
+    return true;
+}
+void stylus_set(bool down, int x, int y) {
+    std::lock_guard<std::mutex> guard(lock);
+    stylus.down = down;
+    stylus.x = x < 0 ? 0 : (x > 255 ? 255 : x);
+    stylus.y = y < 0 ? 0 : (y > 191 ? 191 : y);
+}
+bool stylus_poll(StylusState *out) {
+    if (!out) return false;
+    std::lock_guard<std::mutex> guard(lock);
+    *out = stylus;
     return true;
 }
 }

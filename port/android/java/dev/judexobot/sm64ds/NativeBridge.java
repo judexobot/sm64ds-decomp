@@ -11,6 +11,10 @@ public final class NativeBridge {
             int buttons, int leftX, int leftY, int rightX, int rightY, int rightTrigger);
     public static native void nativeReleaseInput();
     public static native void nativeSetSurface(Surface surface);
+    /** Native DS lower-screen stylus (0..255 by 0..191). */
+    public static native void nativeSetStylus(boolean down, int x, int y);
+    /** Port PC aspect ratio / render scale; call before the first game frame. */
+    public static native void nativeConfigureDisplay(int width, int height, int renderScale);
     /** 0: EUR ASMP cart mounted. See port/android/rom_loader.h for errors. */
     public static native int nativeMountRom(String appPrivatePath);
 }

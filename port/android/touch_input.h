@@ -16,4 +16,11 @@ enum Button : uint16_t {
 void touch_set(uint16_t buttons, int lx, int ly, int rx, int ry, int rt);
 void touch_clear();
 bool touch_poll(PortPadState *out);
+struct StylusState {
+    bool down = false;
+    int x = 0; // DS sub-screen 0..255
+    int y = 0; // DS sub-screen 0..191
+};
+void stylus_set(bool down, int x, int y);
+bool stylus_poll(StylusState *out);
 }

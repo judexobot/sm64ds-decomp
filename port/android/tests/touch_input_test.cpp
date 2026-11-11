@@ -16,5 +16,11 @@ int main() {
     sm64ds_android::touch_clear();
     assert(port_pad_poll(&p) == 1 && p.buttons == 0);
     assert(p.lx == 0 && p.ly == 0 && p.rt == 0);
-    std::puts("Touch and XInput-compatible pad snapshots passed");
+    sm64ds_android::stylus_set(true, 500, -3);
+    sm64ds_android::StylusState stylus{};
+    assert(sm64ds_android::stylus_poll(&stylus));
+    assert(stylus.down && stylus.x == 255 && stylus.y == 0);
+    sm64ds_android::stylus_set(false, 0, 0);
+    assert(sm64ds_android::stylus_poll(&stylus) && !stylus.down);
+    std::puts("Touch, stylus and XInput-compatible snapshots passed");
 }

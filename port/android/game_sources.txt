@@ -2865,3 +2865,42 @@ src/func_ov007_020c78b0.c
 src/func_ov007_020c806c.c
 src/func_ov007_020c83fc.c
 src/func_ov098_02137c8c.c
+src/_ZN4cstd6strchrEPKcc.cpp
+src/func_0203fdac.c
+src/func_02040014.c
+src/func_02040408.c
+src/func_02040504.c
+src/func_02041b24.c
+src/func_02051454.c
+src/func_020570a8.c
+src/func_02057198.c
+src/func_0205ad54.c
+src/func_0205c864.c
+src/func_0205de9c.c
+src/func_0205e904.c
+c src/func_02061fdc.c
+c src/func_020622f0.c
+c src/func_02062338.c
+src/func_02062428.c
+src/func_020625fc.c
+src/func_02063ea8.c
+src/func_020653cc.c
+src/func_02065538.c
+src/func_020659a0.c
+src/func_0206ca7c.c
+src/func_0206cb0c.c
+src/func_0206cd9c.c
+src/func_0206ce20.c
+src/func_0206ce90.c
+src/func_0206cec0.c
+src/func_0206e184.c
+src/func_0206e2cc.c
+src/func_0206e310.c
+src/func_0206ece0.c
+src/func_0206f46c.c
+src/func_0206f820.c
+src/func_0206fb08.c
+src/func_0206fd6c.c
+src/func_ov007_020c249c.c
+src/func_ov007_020c2b9c.c
+src/func_ov007_020c3054.c

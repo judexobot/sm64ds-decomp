@@ -30,6 +30,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#if !defined(_WIN32)
+#include <time.h>
+#endif
 #include "dsstate_seg.h"
 
 typedef unsigned int u32;
@@ -164,7 +167,9 @@ void *Allocate(u32 size);
 void *Allocate(u32 size, int align);
 void Deallocate(void *p);
 }
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void _ZN6Memory10DeallocateEPv(void *p) { Memory::Deallocate(p); }
+#endif // Native Itanium needs the original convenience overload, not recursion.
 
 extern "C" {
 DSSTATE_BEGIN
@@ -501,10 +506,12 @@ static void fs_cache_report(void)
    QueryPerformanceCounter is declared by hand rather than by including
    windows.h: this file defines u8/u16/u32 and carries DS-shaped structs, and
    the Windows headers collide with several of them. */
+#if defined(_WIN32)
 extern "C" __declspec(dllimport) int __stdcall
     QueryPerformanceCounter(long long *);
 extern "C" __declspec(dllimport) int __stdcall
     QueryPerformanceFrequency(long long *);
+#endif
 
 extern "C" {
 unsigned long port_fs_loads;     /* SharedFilePtr::Load calls */
@@ -515,11 +522,17 @@ double port_fs_ms;               /* wall time inside Load */
 
 static double fs_now_ms(void)
 {
+#if defined(_WIN32)
     static long long qpf;
     long long n;
     if (!qpf) QueryPerformanceFrequency(&qpf);
     QueryPerformanceCounter(&n);
     return (double)n * 1000.0 / (double)qpf;
+#else
+    struct timespec now;
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) abort();
+    return (double)now.tv_sec * 1000.0 + (double)now.tv_nsec / 1000000.0;
+#endif
 }
 
 /* read + decompress a loose FAT file into e's master copy. 1 on success. */
@@ -568,6 +581,10 @@ static void *fs_hand_out(const struct fs_cache_entry *e)
 
 /* SharedFilePtr::Load -- the seam. Same contract as 0x02017c54. */
 struct SharedFilePtrC { u16 fileID; u8 numRefs; void *filePtr; };
+#if defined(SM64DS_PLATFORM_ANDROID) && !defined(SM64DS_FS_HOST_TEST)
+static_assert(sizeof(SharedFilePtrC) == 8 && __builtin_offsetof(SharedFilePtrC, filePtr) == 4,
+              "SharedFilePtr native card seam requires the DS ARM32 layout");
+#endif
 
 // PORT_HOST_ABI: DS card hardware (overlay-file table, card streaming,
 //   CP15 flushes); the HAL reimplements the contract. See SEAM LEVEL in the

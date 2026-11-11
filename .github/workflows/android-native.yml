@@ -90,6 +90,13 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -Iport \
             port/android/tests/ctrl_publish_test.cpp -o /tmp/ctrl_publish_test
           /tmp/ctrl_publish_test
+      - name: Load synthetic files through actual PC SharedFilePtr and LZ77 cache
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DSM64DS_PLATFORM_ANDROID=1 -DSM64DS_FS_HOST_TEST=1 -DPORT_ROM_CLEAN=1 \
+            -ffunction-sections -fdata-sections -Iport -Iport/ntr/include \
+            port/hal/fs.cpp port/android/asset_root_refuse_android.cpp \
+            port/android/tests/game_fs_test.cpp -Wl,--gc-sections -o /tmp/game_fs_test
+          /tmp/game_fs_test
       - name: Verify committed target and original Stage boot ordering
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Iport \

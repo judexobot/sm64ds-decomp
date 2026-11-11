@@ -7,7 +7,7 @@ was available, fetched, committed or included in test artifacts.
 
 ## Current actor/Stage integration iteration
 
-* `android/game_sources.txt` enrolls **2,865 additional original PC source
+* `android/game_sources.txt` enrolls **2,904 additional original PC source
   files**, selected against the configured PC `walk_window` target and the
   actual native link imports. Four original draw/VS-loop bodies deliberately
   replace PC seams: Stage::PS_Render, LC_Render, RenderVsModeNewStar and
@@ -47,6 +47,14 @@ was available, fetched, committed or included in test artifacts.
   contents before replacing the image, and retain the original SaveData policy.
   The medium test persists synthetic bytes across two separate processes and
   checks erased cells, bounds/wrap refusal and the exact 8,192-byte image.
+* `hal/fs.cpp` and `card_mount.cpp` now compile for Android: the existing PC
+  SharedFilePtr::Load, handle/FAT/NARC resolution, LZ77 decoder and resident
+  master cache remain the resource path. Native load timing uses CLOCK_MONOTONIC;
+  the recursive Memory::Deallocate spelling bridge is excluded. ARM checks the
+  actual SharedFilePtr pointer offset/size. A host test exercises real loading,
+  decompression, cache-copy independence and allocation calls using synthetic
+  files with allocator observations (not a game-heap/runtime test). The strict
+  game probe now also links the actual Android frame presenter.
 * The final import API is `RomImporter.importAndPrepareEuropeanRom`: the player
   selects **only their ASMP ROM**. The APK must bundle its exact data-free recipe
   and manifest under `assets/sm64ds/`; `RomDataKit` stages them privately and the
@@ -55,13 +63,13 @@ was available, fetched, committed or included in test artifacts.
   the old readiness marker before extraction. There is no metadata file picker.
 
 Current local evidence: NDK r27c Release component build and three Android
-unit executables **compile**; 16 host workflow steps pass; Java API35 compilation,
+unit executables **compile**; 17 host workflow steps pass; Java API35 compilation,
 packed ELF checks and all 301 Player definitions pass. The ARM CPU-only test
 executes actual original hooks, bypassing Android libc initialization; normal
 Android startup under local QEMU is blocked by the container's personality
 restriction. No Android executable has been run on a phone.
 
-The strict whole-archive game link currently reports **2,846 unresolved
+The strict whole-archive game link currently reports **2,847 unresolved
 symbols, zero duplicates**; 194 are explicitly separated raw DS vtable imports.
 The larger closure exposes additional dependencies compared with the previous
 952-symbol snapshot; counts across these different inputs are not a gameplay
@@ -87,9 +95,25 @@ Important remaining boundaries:
   gameplay loop, Android game thread/lifecycle and real AAudio/save integration
   are not yet running through JNI. The JNI `.so` remains services only.
 
-The 16 host steps, ARM code execution and stricter layout/link reports are wired
+The 17 host steps, ARM code execution and stricter layout/link reports are wired
 into `android-native.yml`. Artifacts remain labelled components-NOT-APK. No APK
 is produced or described as playable.
+
+## CI checkpoint
+
+Commit `bef9aae23ebeb86cd640cca82cf0aaec52f42f97` was pushed solely to
+`android/game-port`. [Android run 43087450573](https://github.com/judexobot/sm64ds-decomp/actions/runs/43087450573)
+passed all six host jobs, Java, NDK, packed ELF/Player checks and the ARM CPU
+execution step. It failed only at the strict game link, with 2,846 unresolved
+symbols and zero duplicates. Components-NOT-APK and exact link diagnostics were
+uploaded; no APK was built. The subsequent filesystem closure has 2,847 imports
+because it exposes further real archive/data dependencies.
+
+The separate [PR validation run](https://github.com/judexobot/sm64ds-decomp/actions/runs/43087457466)
+failed before code validation: its submission helper received an empty RELAY
+and reported `Expected an HTTPS relay URL without credentials, query or fragment`.
+That is not a ROM byte-match result. The public `main` branch still points to
+`0969cfe986ae59f24dc8b77352b0886037ce5a8b`; it was read, never written or merged.
 
 ## Previous scene/Stage groundwork (`5408be3`)
 

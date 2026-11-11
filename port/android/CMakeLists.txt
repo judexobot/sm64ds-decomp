@@ -72,6 +72,7 @@ add_library(sm64ds_android_game_flow STATIC
   ../unmatched/func_02043fdc_hostcopy.cpp
   ../hal/stage_frame.cpp ../hal/message_pump.cpp stage_ctrl.cpp
   ../ntr/backup.cpp ../hal/globals_link100.cpp
+  ../hal/fs.cpp ../hal/card_mount.cpp
   ../../src/d_s_dsmt.c
   ../../src/_ZN9dScDSMT_c8BehaviorEv.cpp
   ../../src/_ZN9dScDSMT_c6RenderEv.cpp
@@ -224,7 +225,8 @@ target_compile_options(android_actor_process_test PRIVATE -UNDEBUG)
 # undefined symbols and unused archive members can hide missing game code.
 # Build this target to expose the current closure; never package this probe
 # as an APK or infer playability from resolving its symbols alone.
-add_library(sm64ds_android_game_link_check SHARED EXCLUDE_FROM_ALL native_bridge.cpp)
+add_library(sm64ds_android_game_link_check SHARED EXCLUDE_FROM_ALL
+  native_bridge.cpp android_present.cpp)
 target_include_directories(sm64ds_android_game_link_check PRIVATE
   ../ntr/include .. .)
 target_link_libraries(sm64ds_android_game_link_check PRIVATE

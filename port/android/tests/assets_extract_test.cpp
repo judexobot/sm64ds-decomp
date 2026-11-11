@@ -2,6 +2,8 @@
 #include "rom_loader.h"
 #include "ntr/fs.h"
 #include <array>
+#include <algorithm>
+#include <iterator>
 #include <cassert>
 #include <cstdio>
 #include <cstring>
@@ -47,6 +49,61 @@ std::vector<uint8_t> fake_rom() {
     std::memcpy(rom.data() + ASSET, "BMD0", 4);
     return rom;
 }
+
+// Construct a BLZ-compressed overlay 0 without any Nintendo data: an intact
+// 0x6000-byte prefix (including the original handle table), followed by 4096
+// repeated zero bytes encoded as backward-LZ literals and distance-3 matches.
+// This exercises the actual compressed ROM path, not just raw overlays.
+std::vector<uint8_t> compressed_rom() {
+    const auto image = fake_rom();
+    struct Token { bool backref; int length; };
+    std::vector<Token> tokens;
+    int remaining = 0x1000;
+    for (int i = 0; i < 3; ++i) { tokens.push_back({false, 1}); --remaining; }
+    while (remaining >= 3) {
+        const int len = std::min(18, remaining);
+        tokens.push_back({true, len});
+        remaining -= len;
+    }
+    while (remaining > 0) {
+        tokens.push_back({false, 1});
+        --remaining;
+    }
+    std::vector<std::vector<uint8_t>> groups;
+    for (size_t start = 0; start < tokens.size(); start += 8) {
+        std::vector<uint8_t> group;
+        const int count = int(std::min(size_t(8), tokens.size() - start));
+        uint8_t flags = 0;
+        for (int j = 0; j < count; ++j)
+            if (tokens[start + j].backref) flags |= uint8_t(0x80u >> j);
+        for (int j = count - 1; j >= 0; --j) {
+            const auto &token = tokens[start + j];
+            if (token.backref) {
+                group.push_back(0); // displacement 3
+                group.push_back(uint8_t((token.length - 3) << 4));
+            } else group.push_back(0);
+        }
+        group.push_back(flags);
+        groups.push_back(std::move(group));
+    }
+    std::vector<uint8_t> overlay(image.begin() + OV0, image.begin() + OV0 + 0x6000);
+    for (auto it = groups.rbegin(); it != groups.rend(); ++it)
+        overlay.insert(overlay.end(), it->begin(), it->end());
+    const uint32_t compressed_length = uint32_t(overlay.size() - 0x6000 + 8);
+    overlay.resize(overlay.size() + 8);
+    w32(overlay, overlay.size() - 8, (8u << 24) | compressed_length);
+    w32(overlay, overlay.size() - 4, unsigned(OVLEN - overlay.size()));
+    std::vector<uint8_t> rom(image.begin(), image.begin() + OV0);
+    rom.insert(rom.end(), overlay.begin(), overlay.end());
+    const unsigned asset_offset = unsigned(rom.size());
+    rom.insert(rom.end(), image.begin() + ASSET, image.end());
+    w32(rom, 0x244, asset_offset);
+    w32(rom, 0x248, asset_offset);
+    w32(rom, 0x24C, asset_offset + 4);
+    w32(rom, 0x278, 0x01000000u | unsigned(overlay.size()));
+    return rom;
+}
+
 bool write_file(const std::string &path, const std::vector<uint8_t> &v) {
     std::FILE *file = std::fopen(path.c_str(), "wb");
     if (!file) return false;
@@ -92,13 +149,26 @@ int main() {
     assert(read_text(target+"/build/assets/nitrofs_ovt9.bin").size() == 32);
     assert(!read_text(target+"/build/assets/android_extract.ready").empty());
 
+    // A BLZ-compressed overlay decodes the same full handle table and assets.
+    image = compressed_rom();
+    assert(write_file(rom, image));
+    assert(sm64ds_android::mount_european_rom(rom.c_str()) ==
+           sm64ds_android::RomStatus::ok);
+    assert(sm64ds_android::prepare_pc_assets(rom.c_str(), target.c_str(), &st) ==
+           sm64ds_android::AssetStatus::ok);
+    assert(st.handles == 0x80A && st.extracted_bytes == 4);
+    assert(read_text(target+"/extracted/dsd/files/data/test.bmd") == "BMD0");
+
     // Wrong version of the handle table must refuse, NOT fabricate a map.
+    image = fake_rom();
     w32(image, OV0 + 0x4B8, 0xDEADBEEFu);
     assert(write_file(rom, image));
     assert(sm64ds_android::mount_european_rom(rom.c_str()) ==
            sm64ds_android::RomStatus::ok);
     assert(sm64ds_android::prepare_pc_assets(rom.c_str(), target.c_str()) ==
            sm64ds_android::AssetStatus::invalid_handle_table);
+    // A failed import never leaves an old ready marker from a previous ROM.
+    assert(read_text(target+"/build/assets/android_extract.ready").empty());
 
     // A traversal path inside the ROM must not escape private storage.
     image = fake_rom();

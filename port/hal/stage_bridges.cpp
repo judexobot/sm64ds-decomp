@@ -133,7 +133,7 @@ static const char *const hal_stage_slot_name[20] = {
  * WHICH SLOTS TRAP IS UNCHANGED BY ANY OF THIS. This is the report only. */
 static int hal_stage_trap_slot = -1;
 
-static int __fastcall st_trap(void *, void *)
+static int __fastcall st_trap(void * PORT_EDX)
 {
     const char *name = "the trap did not record its slot -- fix the thunk";
     if (hal_stage_trap_slot >= 0 && hal_stage_trap_slot < 20)
@@ -147,8 +147,8 @@ static int __fastcall st_trap(void *, void *)
 /* One thunk per slot, generated rather than typed out twenty times. Same body
    as sa_trap13/sa_trap14 in hal/sub_actors.cpp. */
 #define HAL_STAGE_TRAP(n)                                                    \
-    static int __fastcall st_trap##n(void *s, void *d)                       \
-    { hal_stage_trap_slot = (n); return st_trap(s, d); }
+    static int __fastcall st_trap##n(void *s PORT_EDX_NAMED(d))                       \
+    { hal_stage_trap_slot = (n); return st_trap(s PORT_EDX_ARG(d)); }
 HAL_STAGE_TRAP(0)  HAL_STAGE_TRAP(1)  HAL_STAGE_TRAP(2)  HAL_STAGE_TRAP(3)
 HAL_STAGE_TRAP(4)  HAL_STAGE_TRAP(5)  HAL_STAGE_TRAP(6)  HAL_STAGE_TRAP(7)
 HAL_STAGE_TRAP(8)  HAL_STAGE_TRAP(9)  HAL_STAGE_TRAP(10) HAL_STAGE_TRAP(11)
@@ -326,10 +326,7 @@ void *_ZN5StageD0Ev(void *thiz);
    sibling declare the method non-virtual in their own struct, so the
    definitions are ?Virtual34@fBase_c@@QAEHII@Z. include/Stage.h does not
    pull in ActorBase.h, so there is nothing here for this to collide with. */
-struct ActorBase {
-    int Virtual34(unsigned a, unsigned b);
-    int Virtual38(unsigned a, unsigned b);
-};
+#include "host_actor_base.h"
 
 /* THE BOOT BODY, reached through slot 0. port_stage_a_boot (hal/level_boot.cpp)
    stashes its two arguments and its result here so the slot can carry them:
@@ -349,7 +346,7 @@ void  port_stage_boot_set_result(void *o);
    exactly what it did before. */
 extern "C" int port_slot0_rom_init(void *self);   /* hal/stage_slot0.cpp */
 
-static int __fastcall st_init(void *self, void *)
+static int __fastcall st_init(void *self PORT_EDX)
 {
     port_stage_boot_set_result(
         port_stage_boot_body(port_stage_boot_arg_mc(),
@@ -407,12 +404,12 @@ static int __fastcall st_init(void *self, void *)
 #if defined(SM64DS_STAGE_SLOT6_ROM)
 extern "C" int port_stage_rom_behavior(void *self);   /* hal/stage_frame.cpp */
 
-static int __fastcall st_behavior(void *s, void *)
+static int __fastcall st_behavior(void *s PORT_EDX)
 { return port_stage_rom_behavior(s); }
 #else
 /* smoke_player: the host occupant, unchanged. Behaviour-neutral by
    construction -- it is what every target had before gate 220. */
-static int __fastcall st_behavior(void *, void *) { return 1; }
+static int __fastcall st_behavior(void * PORT_EDX) { return 1; }
 #endif
 
 /* Slot 9. THE HOST OCCUPANT IS RETIRED AND THE ROM'S OWN Stage::Render IS HERE
@@ -490,11 +487,17 @@ static int st_slot9_host(void)
     return on;
 }
 
-static int __fastcall st_render(void *s, void *)
-{ return st_slot9_host() ? 1 : port_stage_rom_render(s); }
+static int __fastcall st_render(void *s PORT_EDX)
+{
+#if defined(SM64DS_PLATFORM_ANDROID)
+    return port_stage_rom_render(s);
+#else
+    return st_slot9_host() ? 1 : port_stage_rom_render(s);
+#endif
+}
 #else
 /* smoke_player: the host occupant, unchanged. */
-static int __fastcall st_render(void *, void *)   { return 1; }
+static int __fastcall st_render(void * PORT_EDX)   { return 1; }
 #endif
 
 /* _ZTV5Stage SLOT 1 IS THE ROM'S OWN WORD NOW (run link100 wave 7, lane SEAT2,
@@ -525,13 +528,13 @@ extern "C" void _ZN5Stage19BeforeInitResourcesEv(void);
    it, so st_binit returns exactly 0 or 1. */
 typedef bool (*Seat2StageBeforeInit)(void *);
 
-static int  __fastcall st_binit(void *s, void *)
+static int  __fastcall st_binit(void *s PORT_EDX)
 { return ((Seat2StageBeforeInit)&_ZN5Stage19BeforeInitResourcesEv)(s); }
-static void __fastcall st_ainit(void *s, void *, unsigned a)
+static void __fastcall st_ainit(void *s PORT_EDX, unsigned a)
 { port_scene_after_init(s, a); }
-static int  __fastcall st_bclean(void *s, void *)
+static int  __fastcall st_bclean(void *s PORT_EDX)
 { return _ZN8dScene_c22BeforeCleanupResourcesEv(s); }
-static void __fastcall st_aclean(void *s, void *, unsigned a)
+static void __fastcall st_aclean(void *s PORT_EDX, unsigned a)
 { _ZN8dScene_c21AfterCleanupResourcesEj(s, a); }
 /* SLOT 7 IS THE ONE THAT DESTROYS THE STAGE, and during the star-select
    interlude a scene is pending by construction, so it would fire every
@@ -544,25 +547,25 @@ static void __fastcall st_aclean(void *s, void *, unsigned a)
    the value the ROM's own normal path returns. */
 extern "C" int port_level_interlude_live(void);   /* hal/level_change.cpp */
 
-static int  __fastcall st_bbeh(void *s, void *)
+static int  __fastcall st_bbeh(void *s PORT_EDX)
 {
     if (port_level_interlude_live())
         return 1;
     return _ZN8dScene_c14BeforeBehaviorEv(s);
 }
-static void __fastcall st_abeh(void *s, void *, unsigned a)
+static void __fastcall st_abeh(void *s PORT_EDX, unsigned a)
 { port_scene_after_behavior(s, a); }
-static int  __fastcall st_bren(void *s, void *)
+static int  __fastcall st_bren(void *s PORT_EDX)
 { return _ZN8dScene_c12BeforeRenderEv(s); }
-static void __fastcall st_aren(void *s, void *, unsigned a)
+static void __fastcall st_aren(void *s PORT_EDX, unsigned a)
 { port_scene_after_render(s, a); }
-static int  __fastcall st_v34(void *s, void *, unsigned a, unsigned b)
+static int  __fastcall st_v34(void *s PORT_EDX, unsigned a, unsigned b)
 { return ((ActorBase *)s)->ActorBase::Virtual34(a, b); }
-static int  __fastcall st_v38(void *s, void *, unsigned a, unsigned b)
+static int  __fastcall st_v38(void *s PORT_EDX, unsigned a, unsigned b)
 { return ((ActorBase *)s)->ActorBase::Virtual38(a, b); }
-static int  __fastcall st_heap(void *s, void *)
+static int  __fastcall st_heap(void *s PORT_EDX)
 { return port_scene_on_heap_created(s); }
-static void __fastcall st_pdes(void *s, void *)
+static void __fastcall st_pdes(void *s PORT_EDX)
 { port_stage_on_pending_destroy(s); }
 
 /* ---- SLOTS 3, 16 AND 17: THE LAST THREE TRAPS (run link100, lane STAGE) ----
@@ -710,7 +713,7 @@ extern void *_ZTV5Model[];   /* storage in hal/model_host.cpp; shared, see
                                  hal/method_faces.cpp:199 -- do not renumber */
 }
 
-static void __fastcall stage_skybox_d0(void *s, void *) { _ZN5ModelD0Ev(s); }
+static void __fastcall stage_skybox_d0(void *s PORT_EDX) { _ZN5ModelD0Ev(s); }
 
 static void *g_stage_skybox_vtable[8];
 
@@ -790,14 +793,14 @@ static void st_wipes_vtable_fixup(void)
     data_0209f324 = fresh;
 }
 
-static int  __fastcall st_clean(void *s, void *d)
+static int  __fastcall st_clean(void *s PORT_EDX_NAMED(d))
 {
     if (!st_slot3_rom()) {
         /* THE SAFETY STOP, unchanged. Same reporter, same message, same
            abort -- st_trap is the trap thunks' own body, called here with the
            slot recorded the way HAL_STAGE_TRAP(3) records it. */
         hal_stage_trap_slot = 3;
-        return st_trap(s, d);
+        return st_trap(s PORT_EDX_ARG(d));
     }
     static int noted;
     if (!noted) {
@@ -813,7 +816,7 @@ static int  __fastcall st_clean(void *s, void *d)
     return port_stage_cleanup_resources(s);
 }
 
-static void *__fastcall st_d2(void *s, void *)
+static void *__fastcall st_d2(void *s PORT_EDX)
 {
     static int noted;
     if (!noted) {
@@ -824,7 +827,7 @@ static void *__fastcall st_d2(void *s, void *)
     return _ZN5StageD1Ev(s);
 }
 
-static void *__fastcall st_d0(void *s, void *)
+static void *__fastcall st_d0(void *s PORT_EDX)
 {
     static int noted;
     if (!noted) {
@@ -908,7 +911,7 @@ extern "C" void port_stage_seat_probe(void)
                                : "the named abort");
 }
 
-typedef int(__fastcall *StageSlot0)(void *self, void *dummy);
+typedef int(__fastcall *StageSlot0)(void *self PORT_EDX_NAMED(dummy));
 
 // ---- Particle::SysTracker::SysTracker -------------------------------------
 //
@@ -989,7 +992,7 @@ static void port_stage_slot3_dispatch(void)
                  "(SM64DS_STAGE_SLOT3_ROM %s)\n", g_stage,
                  st_slot3_rom() ? "SET" : "unset");
     std::fflush(stderr);
-    const int r = ((StageSlot0)_ZTV5Stage[3])(g_stage, 0);
+    const int r = ((StageSlot0)_ZTV5Stage[3])(g_stage PORT_EDX_ARG(0));
     std::fprintf(stderr, "[stage-slot3] Stage::CleanupResources returned %d\n",
                  r);
     std::fflush(stderr);
@@ -1374,5 +1377,5 @@ extern "C" void port_stage_lifecycle_boot(void)
         func_020433b8(g_stage);
         return;
     }
-    ((StageSlot0)_ZTV5Stage[0])(g_stage, 0);
+    ((StageSlot0)_ZTV5Stage[0])(g_stage PORT_EDX_ARG(0));
 }

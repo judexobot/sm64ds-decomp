@@ -38,6 +38,29 @@
 #ifndef PORT_HAL_DSSTATE_SEG_H
 #define PORT_HAL_DSSTATE_SEG_H
 
+#ifdef _MSC_VER
+#define DSSTATE_SECTION(name, alignment) \
+    __declspec(allocate(name)) __declspec(align(alignment))
+#define DSSTATE_DECLARE_SECTION(name) __pragma(section(name, read, write))
+#else
+// android/dsstate.ld supplies the COFF-style suffix ordering at final link.
+// These attributes preserve explicitly packed runs; DSSTATE_BEGIN below still
+// does not promise wholesale Android save-state capture.
+#define DSSTATE_SECTION(name, alignment) \
+    __attribute__((section(name), aligned(alignment)))
+#define DSSTATE_DECLARE_SECTION(name)
+#endif
+
+#if defined(SM64DS_PLATFORM_ANDROID)
+// One backing object permits legal cross-symbol accesses in the original
+// code. ELF aliases retain the DS spellings without C++ arrays whose declared
+// bounds would make those accesses undefined even if the linker packs them.
+#define DSSTATE_ALIAS(name, storage, offset, length) \
+    extern "C" unsigned char name[]; \
+    __asm__(".global " #name "\n.set " #name ", " #storage " + " #offset \
+            "\n.type " #name ", %object\n.size " #name ", " #length "\n")
+#endif
+
 /* Declare the attributes of the shared slot BEFORE anything routes into it.
  *
  * This line is load-bearing and its absence is silent. A bare bss_seg gives its

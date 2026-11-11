@@ -1,3 +1,4 @@
+#include "host_call.h"
 /* dScTitle_c's SEVEN VTABLE FACES -- run link100 wave 14, lane SEAT14D.
  *
  * ov003's third and last scene class, scene id 2. dScStarSel_c (id 4) was
@@ -189,22 +190,22 @@ void *g_dbgsel_vptr_after_d2;
  * dScTitle_c::InitResources; sub-batch 3 replaced the slot-6 stub with
  * dScTitle_c::Behavior. Every one of the eighteen words is now either the
  * matched body or the shared Scene half, and no stub survives. */
-extern "C" int __fastcall port_title_init(void *s, void *)
+extern "C" int __fastcall port_title_init(void *s PORT_EDX)
 { ++g_dbgsel_hits[0];  return ((dScTitle_c *)s)->dScTitle_c::InitResources(); }
 
-extern "C" int __fastcall port_title_clean(void *s, void *)
+extern "C" int __fastcall port_title_clean(void *s PORT_EDX)
 { ++g_dbgsel_hits[3];  return ((dScTitle_c *)s)->dScTitle_c::CleanupResources(); }
 
-extern "C" int __fastcall port_title_beh(void *s, void *)
+extern "C" int __fastcall port_title_beh(void *s PORT_EDX)
 { ++g_dbgsel_hits[6];  return ((dScTitle_c *)s)->dScTitle_c::Behavior(); }
 
-extern "C" int __fastcall port_title_render(void *s, void *)
+extern "C" int __fastcall port_title_render(void *s PORT_EDX)
 { ++g_dbgsel_hits[9];  return ((dScTitle_c *)s)->dScTitle_c::Render(); }
 
-extern "C" int __fastcall port_title_pdes(void *s, void *)
+extern "C" int __fastcall port_title_pdes(void *s PORT_EDX)
 { ++g_dbgsel_hits[12]; ((dScTitle_c *)s)->dScTitle_c::OnPendingDestroy(); return 0; }
 
-extern "C" void *__fastcall port_title_d2(void *s, void *)
+extern "C" void *__fastcall port_title_d2(void *s PORT_EDX)
 {
     ++g_dbgsel_hits[16];
     ((dScTitle_c *)s)->dScTitle_c::~dScTitle_c();
@@ -212,7 +213,7 @@ extern "C" void *__fastcall port_title_d2(void *s, void *)
     return s;
 }
 
-extern "C" void *__fastcall port_title_d0(void *s, void *)
+extern "C" void *__fastcall port_title_d0(void *s PORT_EDX)
 {
     ++g_dbgsel_hits[17];
     ((dScTitle_c *)s)->dScTitle_c::~dScTitle_c();

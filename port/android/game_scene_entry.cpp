@@ -8,6 +8,7 @@
 #include "android_present.h"
 #include "hal/scene_frame_shared.h"
 #include "hal/title_handoff_shared.h"
+#include "hal/level_handoff_shared.h"
 #include "ntr/ppu.h"
 #include <cstdlib>
 #include <cstdio>
@@ -36,6 +37,7 @@ namespace {
 bool started = false;
 bool handoff_pending = false;
 int pending_level = -1;
+SceneGameStatus handoff_status = SceneGameStatus::handoff_refused;
 int current_frame = 0;
 SceneInput scene_input;
 }
@@ -61,14 +63,14 @@ SceneGameStatus scene_game_begin(const char *asset_root) {
     current_frame = 0;
     handoff_pending = false;
     pending_level = -1;
+    handoff_status = SceneGameStatus::handoff_refused;
     started = true;
     return SceneGameStatus::ok;
 }
 SceneGameStatus scene_game_frame() {
     if (!started) return SceneGameStatus::not_started;
     if (handoff_pending)
-        return pending_level < 0 ? SceneGameStatus::handoff_refused
-                                 : SceneGameStatus::level_handoff_required;
+        return handoff_status;
     const auto *fb = static_cast<const ntr::Framebuffer *>(port_scene_framebuffer());
     if (!fb) return SceneGameStatus::frame_missing;
 
@@ -106,7 +108,7 @@ SceneGameStatus scene_game_frame() {
     // The original PC title exits its scene loop AFTER the frame foot when
     // file select requests Stage (id 3) and the scene has torn itself down.
     // Do not tick a dead scene, fake a level or silently restart the title.
-    // The full native level boot must be linked before consuming the handoff.
+    // The complete closure must link before any of this runs through JNI.
     if (port_title_entry_should_stop()) {
         // The title is already torn down by the ROM. Even an invalid request
         // MUST end this scene permanently: never tick a destroyed object.
@@ -122,7 +124,16 @@ SceneGameStatus scene_game_frame() {
         pending_level = port_level_host_boot_target();
         if (pending_level < 0)
             return SceneGameStatus::handoff_refused;
-        return SceneGameStatus::level_handoff_required;
+        // Follow PC's Stage creation -> cast seat -> hosted level boot,
+        // with its own collider and full entrance/actor spawning enabled.
+        const auto boot = sm64ds_port::title_boot_committed_level(pending_level);
+        handoff_status = boot.status == sm64ds_port::LevelBootStatus::booted
+            ? SceneGameStatus::level_loop_required
+            : SceneGameStatus::level_boot_failed;
+        // A Stage that booted still needs walk_window's gameplay frame loop.
+        // Keep this terminal until that loop is ported; never tick the title
+        // again or report running gameplay merely because boot returned.
+        return handoff_status;
     }
     return presented ? SceneGameStatus::ok : SceneGameStatus::no_surface;
 }

@@ -1,5 +1,9 @@
 # Super Mario 64 DS — Android native port (WIP)
 
+Current integration evidence and precise blockers: [INTEGRATION_STATUS.md](INTEGRATION_STATUS.md).
+**There is still no playable APK.** Android CI now requires a strict full-game
+link, which currently fails with real unresolved dependencies.
+
 The branch starts from tangosdev/sm64ds-decomp:port/release-0.4.0, not the
 smoke-test-only main branch. That PC tree includes original gameplay, menus,
 stages, game saves, HUD, audio and level logic, but it is still tightly coupled
@@ -97,10 +101,13 @@ Select and d-pad. This is a single-player scene path; online multiplayer
 fan-out, level controls and the post-file-select level handoff are still
 separate work.
 
-The adapter now identifies the game's actual file-select-to-stage request
-through `port_title_entry_should_stop`; it returns
-`level_handoff_required` rather than ticking a destroyed title or faking a
-level. **The actual level-load/boot path is not yet linked to Android.**
+The adapter identifies the game's actual file-select-to-stage request through
+`port_title_entry_should_stop`, finishes and commits the title, then invokes
+the PC's `port_stage_create`, `port_stage_a2_seat` and `port_stage_a_boot`
+with entrance/actor spawning enabled. The result is terminal
+`level_loop_required` on successful Stage initialization, or an explicit
+failure. It never ticks the destroyed title or claims gameplay is running.
+**The full closure and gameplay frame loop are still missing from JNI.**
 The adapter compiles into `libsm64ds_android_game_entry.a`, a static archive
 with genuine unresolved references to the PC game that must be fulfilled
 by a complete native game link. It is NOT part of the running JNI .so yet,

@@ -74,6 +74,9 @@
 #include "vs_width.h"   /* run vs16: the port's player width */
 #include <cstdlib>
 #include <cstring>
+#if defined(SM64DS_PLATFORM_ANDROID)
+#include <time.h>
+#endif
 
 #include "dBgW_Kc.h"
 #include "dsstate_seg.h"
@@ -2848,10 +2851,21 @@ extern unsigned char *data_0209f340;
 // for the camera-mode table. Every delta here equals the symbol's own size
 // and all four are even, so align(2) packs with no interior padding.
 #define SAVEBLK(sec, name, size) \
-    __pragma(section(sec, read, write))                          \
-    extern "C" __declspec(allocate(sec)) __declspec(align(2))    \
+    DSSTATE_DECLARE_SECTION(sec)                               \
+    extern "C" DSSTATE_SECTION(sec, 2)                        \
     unsigned char name[size] = {0}
 
+#if defined(SM64DS_PLATFORM_ANDROID)
+extern "C" {
+DSSTATE_SECTION(".dsstate$savblk0000", 4)
+unsigned char port_level_save_state[0x32c] = {};
+}
+DSSTATE_ALIAS(data_0209caa0, port_level_save_state, 0x00, 0x14);
+DSSTATE_ALIAS(data_0209cab4, port_level_save_state, 0x14, 0x1e);
+DSSTATE_ALIAS(data_0209cad2, port_level_save_state, 0x32, 0x12);
+DSSTATE_ALIAS(data_0209cae4, port_level_save_state, 0x44, 0x10);
+DSSTATE_ALIAS(data_0209caf4, port_level_save_state, 0x54, 728);
+#else
 SAVEBLK(".dsstate$savblk0000", data_0209caa0, 0x14);
 SAVEBLK(".dsstate$savblk0001", data_0209cab4, 0x1e);
 SAVEBLK(".dsstate$savblk0002", data_0209cad2, 0x12);
@@ -2881,6 +2895,7 @@ SAVEBLK(".dsstate$savblk0003", data_0209cae4, 0x10);
    unit; it was 0x84574 bytes away in the image. Both files are in the same
    three targets, so nothing changes about which builds have it. */
 SAVEBLK(".dsstate$savblk0004", data_0209caf4, 728);
+#endif
 
 #undef SAVEBLK
 
@@ -3032,21 +3047,32 @@ extern "C" void port_message_archive_seat(void);
    note in walk_window.cpp has the measurements). A handful of QPC reads per
    level entry, nothing per frame. QPC hand-declared so this file stays out
    of windows.h. */
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" __declspec(dllimport) int __stdcall
 QueryPerformanceCounter(long long *);
 extern "C" __declspec(dllimport) int __stdcall
 QueryPerformanceFrequency(long long *);
+#endif
 
 static double g_lvlperf_ms[4];   /* teardown, boot, census, print */
 
 extern "C" double port_lvlperf_now(void)
 {
+#if defined(SM64DS_PLATFORM_ANDROID)
+    timespec now{};
+    if (clock_gettime(CLOCK_MONOTONIC, &now) != 0) {
+        std::perror("[lvl-perf] clock_gettime");
+        std::abort();
+    }
+    return now.tv_sec * 1000.0 + now.tv_nsec / 1000000.0;
+#else
     static long long freq;
     long long c;
     if (!freq)
         QueryPerformanceFrequency(&freq);
     QueryPerformanceCounter(&c);
     return c * 1000.0 / freq;
+#endif
 }
 
 extern "C" void port_lvlperf_note(int span, double ms)
@@ -3997,7 +4023,7 @@ extern "C" void *port_stage_object(void);
    place (the ovdata contract: callers patch code pointers at runtime); the
    rest trap by name rather than jumping into the overlay image. */
 extern "C" {
-unsigned char data_ov002_0210a83c[];
+extern unsigned char data_ov002_0210a83c[];
 int _ZN6Player13InitResourcesEv(void *self);
 int _ZN8dActor_c19BeforeInitResourcesEv(void *self);
 void _ZN8dActor_c18AfterInitResourcesEj(void *self, unsigned r);
@@ -4014,11 +4040,14 @@ int func_02043288(void *self);         /* port/unmatched: the behaviour Process 
    extern "C" block. main's dActor_c.h now reaches include/math/Fix12.h, and
    a template cannot be declared with C linkage (C2894), so both moved to the
    include block at the top of this file. */
+#if !defined(SM64DS_PLATFORM_ANDROID)
+// This bridge's destination already has the flat name under native Itanium.
 extern "C" int _ZN7fBase_c19BeforeInitResourcesEv(void *self)
 { return ((fBase_c *)self)->fBase_c::BeforeInitResources() ? 1 : 0; }
+#endif
 
 
-static int __fastcall ps_init(void *s, void *)
+static int __fastcall ps_init(void *s PORT_EDX)
 {
     /* Bit 7 of the save block's word 2 says the intro has played, and
        Player::InitResources reads it to decide whether to load the
@@ -4031,11 +4060,11 @@ static int __fastcall ps_init(void *s, void *)
     data_0209caa0[8] = saved;
     return r;
 }
-static int __fastcall ps_binit(void *s, void *)
+static int __fastcall ps_binit(void *s PORT_EDX)
 { return _ZN8dActor_c19BeforeInitResourcesEv(s); }
-static void __fastcall ps_ainit(void *s, void *, unsigned a)
+static void __fastcall ps_ainit(void *s PORT_EDX, unsigned a)
 { _ZN8dActor_c18AfterInitResourcesEj(s, a); }
-static int __fastcall ps_behavior(void *s, void *)
+static int __fastcall ps_behavior(void *s PORT_EDX)
 { return hal_player_behavior(s); }
 /* Slots 7 and 8, read out of ov002's own _ZTV6Player at 0x0210a83c with its
    relocation table applied: 0x02010fd4 = Actor::BeforeBehavior and 0x02010fc8
@@ -4043,9 +4072,9 @@ static int __fastcall ps_behavior(void *s, void *)
    ActorBase::AfterBehavior (0x02043af8), so the thunk calls the target
    directly -- a host forward through the veneer's own C face would drop the
    argument the ARM tail call rides through in r0/r1. */
-static int __fastcall ps_bbeh(void *s, void *)
+static int __fastcall ps_bbeh(void *s PORT_EDX)
 { return _ZN8dActor_c14BeforeBehaviorEv(s); }
-static void __fastcall ps_abeh(void *s, void *, unsigned a)
+static void __fastcall ps_abeh(void *s PORT_EDX, unsigned a)
 { ((fBase_c *)s)->fBase_c::AfterBehavior(a); }
 /* Slots 9/10/11. The render bucket (processing list 5) now dispatches every
    actor's Render through its vtable, and the Player is on that list like
@@ -4082,7 +4111,7 @@ void hal_render_player_world(void *player);
  * seated body matrix, so it positions each one itself). Normal play, VS and
  * co-op are byte-unaffected: every player they run is in the array, so this
  * loop finds it and returns before drawing. */
-static int __fastcall ps_render(void *self, void *)
+static int __fastcall ps_render(void *self PORT_EDX)
 {
     const int count = (int)data_0209f21c;
     for (int i = 0; i < count; ++i)
@@ -4091,9 +4120,9 @@ static int __fastcall ps_render(void *self, void *)
     hal_render_player_world(self);  /* cutscene cast: draw its body here */
     return 1;
 }
-static int __fastcall ps_bren(void *s, void *)
+static int __fastcall ps_bren(void *s PORT_EDX)
 { return _ZN8dActor_c12BeforeRenderEv(s); }
-static void __fastcall ps_aren(void *s, void *, unsigned a)
+static void __fastcall ps_aren(void *s PORT_EDX, unsigned a)
 { ((fBase_c *)s)->fBase_c::AfterRender(a); }
 
 /* ---- the DESTROY slots (gate 31) ------------------------------------------
@@ -4117,19 +4146,19 @@ void _ZN6Player16OnPendingDestroyEv(void *self);
 void *_ZN6PlayerD1Ev(void *self);
 void *_ZN6PlayerD0Ev(void *self);   /* slot 17, gate 224 */
 }
-static int __fastcall ps_bclean(void *s, void *)
+static int __fastcall ps_bclean(void *s PORT_EDX)
 { return ((dActor_c *)s)->dActor_c::BeforeCleanupResources(); }
-static void __fastcall ps_aclean(void *s, void *, unsigned a)
+static void __fastcall ps_aclean(void *s PORT_EDX, unsigned a)
 { ((fBase_c *)s)->fBase_c::AfterCleanupResources(a); }
-static int __fastcall ps_clean(void *s, void *)
+static int __fastcall ps_clean(void *s PORT_EDX)
 { return _ZN6Player16CleanupResourcesEv(s); }
-static void __fastcall ps_pdes(void *s, void *)
+static void __fastcall ps_pdes(void *s PORT_EDX)
 { _ZN6Player16OnPendingDestroyEv(s); }
 /* D1 is the complete-object destructor the ROM's slot 16 holds. The Player
    has no virtual bases, so D1 and D2 are the same body and mwcc emits one;
    MSVC's D2 spelling is what src/_ZN6PlayerD1Ev.cpp defines. It must NOT
    deallocate -- the caller does that one line later. */
-static int __fastcall ps_d1(void *s, void *)
+static int __fastcall ps_d1(void *s PORT_EDX)
 { return (int)(size_t)_ZN6PlayerD1Ev(s); }
 /* SLOT 17, THE DELETING DESTRUCTOR -- run link100 lane OV6, gate 224. The ROM
    parks _ZN6PlayerD0Ev (ov002 0x020e67a8) here and this table is NOT MSVC-
@@ -4148,7 +4177,7 @@ static int __fastcall ps_d1(void *s, void *)
    on the single TU reports 0 unresolved and 0 dup-def against this tree's map.
    ABI is ps_d1's: a flat C body taking `this` as an ordinary first argument,
    behind the ecx->arg adapter every slot in this table uses. */
-static int __fastcall ps_d0(void *s, void *)
+static int __fastcall ps_d0(void *s PORT_EDX)
 { return (int)(size_t)_ZN6PlayerD0Ev(s); }
 
 /* ---- THE PLAYER'S TABLE IS THIRTY-ONE SLOTS, AND ONLY TWENTY WERE SEEDED --
@@ -4203,27 +4232,27 @@ int  _ZN6Player13OnYoshiTryEatEv(void *self);                      /* 18 */
 /* 19 and 21..28 take their argument PUSHED by the __thiscall caller, so each
    thunk needs the dummy edx AND the named parameter or the caller's frame runs
    short. */
-static int __fastcall ps_yoshi18(void *s, void *)
+static int __fastcall ps_yoshi18(void *s PORT_EDX)
 { return _ZN6Player13OnYoshiTryEatEv(s); }
-static int __fastcall ps_egg19(void *s, void *, void *p)
+static int __fastcall ps_egg19(void *s PORT_EDX, void *p)
 { _ZN8dActor_c13OnTurnIntoEggER6Player(s, p); return 0; }
-static int __fastcall ps_v50(void *s, void *)
+static int __fastcall ps_v50(void *s PORT_EDX)
 { return _ZN8dActor_c9Virtual50Ev(s); }
-static int __fastcall ps_pounded(void *s, void *, void *o)
+static int __fastcall ps_pounded(void *s PORT_EDX, void *o)
 { _ZN8dActor_c15OnGroundPoundedERS_(s, o); return 0; }
-static int __fastcall ps_atk1(void *s, void *, void *o)
+static int __fastcall ps_atk1(void *s PORT_EDX, void *o)
 { _ZN8dActor_c11OnAttacked1ERS_(s, o); return 0; }
-static int __fastcall ps_atk2(void *s, void *, void *o)
+static int __fastcall ps_atk2(void *s PORT_EDX, void *o)
 { _ZN8dActor_c11OnAttacked2ERS_(s, o); return 0; }
-static int __fastcall ps_kicked(void *s, void *, void *o)
+static int __fastcall ps_kicked(void *s PORT_EDX, void *o)
 { _ZN8dActor_c8OnKickedERS_(s, o); return 0; }
-static int __fastcall ps_pushed(void *s, void *, void *o)
+static int __fastcall ps_pushed(void *s PORT_EDX, void *o)
 { _ZN8dActor_c8OnPushedERS_(s, o); return 0; }
-static int __fastcall ps_cannon(void *s, void *, void *o)
+static int __fastcall ps_cannon(void *s PORT_EDX, void *o)
 { _ZN8dActor_c24OnHitByCannonBlastedCharERS_(s, o); return 0; }
-static int __fastcall ps_mega(void *s, void *, void *p)
+static int __fastcall ps_mega(void *s PORT_EDX, void *p)
 { _ZN8dActor_c15OnHitByMegaCharER6Player(s, p); return 0; }
-static int __fastcall ps_aimed(void *s, void *)
+static int __fastcall ps_aimed(void *s PORT_EDX)
 { return _ZN8dActor_c16OnAimedAtWithEggEv(s); }
 
 /* SLOT 28 ONLY, and the distinction matters to a player. ps_trap below
@@ -4237,7 +4266,7 @@ static int __fastcall ps_aimed(void *s, void *)
    aborted all along, and converting this file's whole trap convention is a
    broad behaviour change that has no business riding a hotfix. */
 extern "C" void port_actor_slot_decline(const char *what);
-static int __fastcall ps_decline28(void *, void *)
+static int __fastcall ps_decline28(void * PORT_EDX)
 {
     std::fprintf(stderr,
                  "UNHOSTED: Player vtable slot 28 (OnHitFromUnderneath) is not "
@@ -4266,7 +4295,7 @@ static const char *const hal_player_slot_name[HAL_PLAYER_SLOTS] = {
    -- unlike the Stage's `& 19` -- so only the recording half needs fixing.
    One thunk per slot, the hal/sub_actors.cpp sa_trap13 shape. */
 static int hal_player_trap_slot = -1;
-static int __fastcall ps_trap(void *, void *)
+static int __fastcall ps_trap(void * PORT_EDX)
 {
     std::fprintf(stderr, "FATAL: Player vtable slot %d (%s) is not hosted\n",
                  hal_player_trap_slot,
@@ -4278,8 +4307,8 @@ static int __fastcall ps_trap(void *, void *)
 }
 
 #define HAL_PLAYER_TRAP(n)                                                   \
-    static int __fastcall ps_trap##n(void *s, void *d)                       \
-    { hal_player_trap_slot = (n); return ps_trap(s, d); }
+    static int __fastcall ps_trap##n(void *s PORT_EDX_NAMED(d))                       \
+    { hal_player_trap_slot = (n); return ps_trap(s PORT_EDX_ARG(d)); }
 HAL_PLAYER_TRAP(0)  HAL_PLAYER_TRAP(1)  HAL_PLAYER_TRAP(2)  HAL_PLAYER_TRAP(3)
 HAL_PLAYER_TRAP(4)  HAL_PLAYER_TRAP(5)  HAL_PLAYER_TRAP(6)  HAL_PLAYER_TRAP(7)
 HAL_PLAYER_TRAP(8)  HAL_PLAYER_TRAP(9)  HAL_PLAYER_TRAP(10) HAL_PLAYER_TRAP(11)

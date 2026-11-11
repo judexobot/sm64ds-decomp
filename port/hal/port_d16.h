@@ -1,5 +1,6 @@
 #ifndef PORT_HAL_PORT_D16_H
 #define PORT_HAL_PORT_D16_H
+#include "host_call.h"
 
 /* SLOT 16 IS THE ONE VTABLE SLOT MSVC DISPATCHES ITSELF, AND ITS CONTRACT IS
  * NOT THE VTABLE LAW'S.
@@ -61,11 +62,20 @@
 #include "dtorcall_census.h"
 
 template <auto Face>
+#if defined(SM64DS_PLATFORM_ANDROID)
+static int port_d16_face(void *self)
+{
+    // ARM's virtual destructor pair has no MSVC scalar-delete flag or EDX.
+    port_dtorcall_note(self);
+    return (int)(size_t)Face(self);
+}
+#else
 static int __fastcall port_d16_face(void *self, void *dummy, unsigned /*flag*/)
 {
     port_dtorcall_note(self);
     return (int)(size_t)Face(self, dummy);
 }
+#endif
 
 #define PORT_D16(f) (&port_d16_face<f>)
 

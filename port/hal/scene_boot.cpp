@@ -141,7 +141,9 @@
 // run mg15, lane TITLE3: the hardware write-watch below needs the x86 debug
 // registers and a vectored exception handler. Same plain include ten other
 // hal TUs already use (hal/os_arena.cpp, hal/oam_lists.cpp, ...).
+#ifdef _WIN32
 #include <windows.h>
+#endif
 
 #include "ntr/gx.h"
 #include "ntr/mmio.h"
@@ -420,13 +422,13 @@ int *_ZN13dScGameOver_cD0Ev(void *self);            /* slot 17 D0               
    not belong in the middle of this file. */
 extern unsigned char g_profile_TITLE[];          /* SpawnInfo, +4 reads 2 */
 void *dScTitle_c_classInit(void);                /* the factory */
-int   __fastcall port_title_init(void *self, void *dummy);   /* slot 0  */
-int   __fastcall port_title_clean(void *self, void *dummy);  /* slot 3  */
-int   __fastcall port_title_beh(void *self, void *dummy);    /* slot 6  */
-int   __fastcall port_title_render(void *self, void *dummy); /* slot 9  */
-int   __fastcall port_title_pdes(void *self, void *dummy);   /* slot 12 */
-void *__fastcall port_title_d2(void *self, void *dummy);     /* slot 16 */
-void *__fastcall port_title_d0(void *self, void *dummy);     /* slot 17 */
+int   __fastcall port_title_init(void *self PORT_EDX_NAMED(dummy));   /* slot 0  */
+int   __fastcall port_title_clean(void *self PORT_EDX_NAMED(dummy));  /* slot 3  */
+int   __fastcall port_title_beh(void *self PORT_EDX_NAMED(dummy));    /* slot 6  */
+int   __fastcall port_title_render(void *self PORT_EDX_NAMED(dummy)); /* slot 9  */
+int   __fastcall port_title_pdes(void *self PORT_EDX_NAMED(dummy));   /* slot 12 */
+void *__fastcall port_title_d2(void *self PORT_EDX_NAMED(dummy));     /* slot 16 */
+void *__fastcall port_title_d0(void *self PORT_EDX_NAMED(dummy));     /* slot 17 */
 /* THE WITNESS, and its name is NOT g_ti_hits. This file already has one of
    those at :3709 -- dScDSMT_c's, ov007, scene id 1 -- and `ti` there is TItle.
    An extern of that name here would have been declared before a later static
@@ -746,10 +748,15 @@ DSSTATE_END
    why only these three are here. */
 namespace GX { void SetBankForTex(unsigned short); void SetBankForOBJ(unsigned short); }
 namespace G3X { void SetFog(bool enable, int a, int b, int c); }
+#if !defined(SM64DS_PLATFORM_ANDROID)
+// MSVC mangles the C++ destination differently. On Android these flat names
+// ARE the destinations' native Itanium names: emitting a bridge would recurse
+// into itself and conceal the missing original implementation from the linker.
 extern "C" void _ZN2GX13SetBankForTexEt(unsigned short v) { GX::SetBankForTex(v); }
 extern "C" void _ZN2GX13SetBankForOBJEt(unsigned short v) { GX::SetBankForOBJ(v); }
 extern "C" void _ZN3G3X6SetFogEbiii(int e, int a, int b, int c)
 { G3X::SetFog(e != 0, a, b, c); }
+#endif
 
 // ============================================================================
 // run link60 lane L2: everything the ov007 slice needed that was not a TU.
@@ -772,6 +779,17 @@ extern "C" void _ZN3G3X6SetFogEbiii(int e, int a, int b, int c)
 //
 // All five are BSS, so zeroed host storage reads exactly what the DS's own
 // cleared BSS reads. They sit inside .dsstate so a save state captures them.
+#if defined(SM64DS_PLATFORM_ANDROID)
+extern "C" {
+DSSTATE_SECTION(".dsstate$l2_00", 4)
+unsigned char port_scene_title_state[0xb0] = {};
+}
+DSSTATE_ALIAS(data_0209b33c, port_scene_title_state, 0x00, 4);
+DSSTATE_ALIAS(data_0209b340, port_scene_title_state, 0x04, 11);
+DSSTATE_ALIAS(data_0209b34b, port_scene_title_state, 0x0f, 3);
+DSSTATE_ALIAS(data_0209b34e, port_scene_title_state, 0x12, 138);
+DSSTATE_ALIAS(data_0209b3d8, port_scene_title_state, 0x9c, 20);
+#else
 #pragma section(".dsstate$l2_00", read, write)
 #pragma section(".dsstate$l2_01", read, write)
 #pragma section(".dsstate$l2_02", read, write)
@@ -779,18 +797,19 @@ extern "C" void _ZN3G3X6SetFogEbiii(int e, int a, int b, int c)
 #pragma section(".dsstate$l2_04", read, write)
 extern "C" {
 /* the file-select record pointer */
-__declspec(allocate(".dsstate$l2_00")) __declspec(align(1))
+DSSTATE_SECTION(".dsstate$l2_00", 1)
 unsigned char data_0209b33c[4];
 /* the title state block. ELEVEN bytes by dsd delta, reached at +0x9c */
-__declspec(allocate(".dsstate$l2_01")) __declspec(align(1))
+DSSTATE_SECTION(".dsstate$l2_01", 1)
 unsigned char data_0209b340[11];
-__declspec(allocate(".dsstate$l2_02")) __declspec(align(1))
+DSSTATE_SECTION(".dsstate$l2_02", 1)
 unsigned char data_0209b34b[3];
-__declspec(allocate(".dsstate$l2_03")) __declspec(align(1))
+DSSTATE_SECTION(".dsstate$l2_03", 1)
 unsigned char data_0209b34e[138];
-__declspec(allocate(".dsstate$l2_04")) __declspec(align(1))
+DSSTATE_SECTION(".dsstate$l2_04", 1)
 unsigned char data_0209b3d8[20];
 }
+#endif
 
 DSSTATE_BEGIN
 extern "C" {
@@ -1371,17 +1390,26 @@ int data_020a637c[9];                              /* bss, 36 by ROM span */
    "$zzz" high sentinel, so both stay inside the save-state capture exactly as
    the plain globals around them were. Both are bss on the DS, so zero-filled
    host storage reads what the DS's own cleared bss reads. */
-__pragma(section(".dsstate$tp0001", read, write))
-__declspec(allocate(".dsstate$tp0001")) __declspec(align(4))
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_SECTION(".dsstate$tp0001", 4)
+unsigned char port_scene_touch_state[0x38] = {};
+#else
+DSSTATE_DECLARE_SECTION(".dsstate$tp0001")
+DSSTATE_SECTION(".dsstate$tp0001", 4)
 unsigned char data_020a80cc[0x18] = {0};
-__pragma(section(".dsstate$tp0002", read, write))
-__declspec(allocate(".dsstate$tp0002")) __declspec(align(4))
+DSSTATE_DECLARE_SECTION(".dsstate$tp0002")
+DSSTATE_SECTION(".dsstate$tp0002", 4)
 unsigned char data_020a80e4[0x20] = {0};
+#endif
 /* data_0209caa0 is NOT defined here: hal/level_boot.cpp already hosts it as
    a 0x14 save block, and its own header records that the ROM object is wider
    than the dsd symbol. Only the mangled spelling below is added. */
 }
 DSSTATE_END
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_ALIAS(data_020a80cc, port_scene_touch_state, 0x00, 0x18);
+DSSTATE_ALIAS(data_020a80e4, port_scene_touch_state, 0x18, 0x20);
+#endif
 /* ---- data_0208ea6c SEATED: ten slots, and the skew that would eat two ------
 
    THE SLOT MAP IS THE ROM'S, read two ways that had to agree. First
@@ -1520,7 +1548,7 @@ static void l2_eb2c_note(int slot)
    calls Color::~Color, which is the ROM body verbatim; it is in the link on
    slice_ov007.txt line 778. Section 9c lists NO call site for either
    destructor slot, so the shape is the no-argument default. */
-static void *__fastcall l2_ea6c_s00(void *s, void *)
+static void *__fastcall l2_ea6c_s00(void *s PORT_EDX)
 { l2_ea6c_note(0); return _ZN10dFdDummy_cD1Ev(s); }
 
 /* +0x04. D0, AND IT IS SEATED NOW -- run link100 lane ARM9T, gate 225.
@@ -1545,7 +1573,7 @@ static void *__fastcall l2_ea6c_s00(void *s, void *)
    either destructor slot, which is what slot +0x00 above already rests on, so
    this takes the same no-argument __fastcall shape D1 does and no audit of a
    new dispatch site is claimed. */
-static void *__fastcall l2_ea6c_s04(void *s, void *)
+static void *__fastcall l2_ea6c_s04(void *s PORT_EDX)
 { l2_ea6c_note(1); return _ZN10dFdDummy_cD0Ev(s); }
 
 /* +0x08. AdvanceFade, and the one slot here that is not __fastcall, for
@@ -1584,12 +1612,12 @@ static void __cdecl l2_ea6c_s08(void *s)
 /* The ROM-ordered dispatch the two setters end in. Byte offsets, because that
    is what the ARM encodes; the same helper shape hal/fdr_arm9_fader_seat.cpp's
    fdr_view_dispatch uses. */
-typedef int(__fastcall *L2Ea6cSlot)(void *, void *);
+typedef int(__fastcall *L2Ea6cSlot)(void * PORT_EDX);
 
 static int l2_ea6c_dispatch(void *s, unsigned rom_byte)
 {
     void **vt = *(void ***)s;
-    return ((L2Ea6cSlot)vt[rom_byte / 4])(s, 0);
+    return ((L2Ea6cSlot)vt[rom_byte / 4])(s PORT_EDX_ARG(0));
 }
 
 /* +0x0c and +0x10. SetBackwardTime and SetForwardTime, AND THESE TWO ARE
@@ -1699,9 +1727,9 @@ static int __cdecl l2_ea6c_s10(void *s, int, int)
 /* +0x14 and +0x18. The matched predicates, through the flat faces two other
    hal files already own, each of which makes a QUALIFIED call so nothing
    re-dispatches. */
-static int __fastcall l2_ea6c_s14(void *s, void *)
+static int __fastcall l2_ea6c_s14(void *s PORT_EDX)
 { l2_ea6c_note(5); return _ZN15FaderBrightness9IsAtStartEv(s); }
-static int __fastcall l2_ea6c_s18(void *s, void *)
+static int __fastcall l2_ea6c_s18(void *s PORT_EDX)
 { l2_ea6c_note(6); return _ZN15FaderBrightness7IsAtEndEv(s); }
 
 /* +0x1c. THE SLOT THE SKEW IS ABOUT, and the one that must NOT call the
@@ -1712,20 +1740,20 @@ static int __fastcall l2_ea6c_s18(void *s, void *)
    two slots directly above. A qualified call here instead would reach +0x10,
    which is l2_ea6c_s10: a wrong answer, a clobbered `speed`, and eight bytes
    off the caller's frame. l2_ea6c_selftest below measures exactly that. */
-static int __fastcall l2_ea6c_s1c(void *s, void *)
+static int __fastcall l2_ea6c_s1c(void *s PORT_EDX)
 { l2_ea6c_note(7); return _ZN15FaderBrightness20IsBetweenStartAndEndEv(s); }
 
 /* +0x20 and +0x24. Both matched, both non-virtual in the header, so a
    qualified call is a direct call and the host vtable is not read. */
-static void __fastcall l2_ea6c_s20(void *s, void *)
+static void __fastcall l2_ea6c_s20(void *s PORT_EDX)
 { l2_ea6c_note(8); ((FaderBrightness *)s)->FaderBrightness::SetToEnd(); }
-static void __fastcall l2_ea6c_s24(void *s, void *)
+static void __fastcall l2_ea6c_s24(void *s PORT_EDX)
 { l2_ea6c_note(9); ((FaderBrightness *)s)->FaderBrightness::SetToStart(); }
 
 /* +0x28 and +0x2c are the next table's header, not this class's slots (see the
    head of section 2b). Nothing may dispatch them; they keep the trap so that
    something which does says so instead of jumping into the offset-to-top. */
-static int __fastcall l2_ea6c_over(void *, void *)
+static int __fastcall l2_ea6c_over(void * PORT_EDX)
 { l2_trap("data_0208ea6c vtable slot"); return 0; }
 
 /* ---- data_0208eb2c, _ZTV10FaderColor: THE EIGHT SLOTS THE AUDIT MISSED ----
@@ -1820,15 +1848,15 @@ struct L2Eb2cView {
 /* MSVC byte 0x10 is FaderBrightness::IsAtStart; the ROM keeps it at 0x14.
    MSVC byte 0x14 is FaderBrightness::IsAtEnd;   the ROM keeps it at 0x18.
    Both dispatch the REAL receiver's own table, which is what the ARM does. */
-static int __fastcall l2_eb2c_view_is_at_start(L2Eb2cView *v, void *)
+static int __fastcall l2_eb2c_view_is_at_start(L2Eb2cView *v PORT_EDX)
 { return l2_ea6c_dispatch(v->real, 0x14); }
-static int __fastcall l2_eb2c_view_is_at_end(L2Eb2cView *v, void *)
+static int __fastcall l2_eb2c_view_is_at_end(L2Eb2cView *v PORT_EDX)
 { return l2_ea6c_dispatch(v->real, 0x18); }
 
 /* Nothing reaches 0x00 through 0x0c: each setter dispatches exactly one
    predicate and returns. Filled with a named refusal rather than left null so
    a codegen change announces itself instead of jumping to zero. */
-static int __fastcall l2_eb2c_view_unreached(void *, void *)
+static int __fastcall l2_eb2c_view_unreached(void * PORT_EDX)
 {
     std::fprintf(stderr, "  [eb2c] the MSVC-ordered view built for the "
                  "FaderBrightness setters was dispatched below byte 0x10. "
@@ -1850,6 +1878,14 @@ static void *l2_eb2c_msvc_vt[6] = {
 
 static int l2_eb2c_run_setter(void *s, unsigned frames, int backward)
 {
+#if defined(SM64DS_PLATFORM_ANDROID)
+    // AAPCS/Itanium keeps the two destructor slots, so the native setters
+    // already dispatch predicates at the ROM's +0x14/+0x18. The MSVC-only
+    // shifted view below must never be passed to those native bodies.
+    auto *fb = static_cast<FaderBrightness *>(s);
+    return backward ? fb->FaderBrightness::SetBackwardTime(frames)
+                    : fb->FaderBrightness::SetForwardTime(frames);
+#else
     L2Eb2cView v;
     v.vt = l2_eb2c_msvc_vt;
     v.currInterp = ((int *)s)[1];
@@ -1860,6 +1896,7 @@ static int l2_eb2c_run_setter(void *s, unsigned frames, int backward)
                            : fb->FaderBrightness::SetForwardTime(frames);
     ((int *)s)[2] = v.speed;
     return r;
+#endif
 }
 
 /* +0x08. FaderColor::AdvanceFade, and the one slot here that is not
@@ -1971,6 +2008,14 @@ extern "C" int __cdecl l2_eb2c_s10_body(void *s, int frames, int)
     l2_eb2c_note(4); return l2_eb2c_run_setter(s, (unsigned)frames, 0);
 }
 
+#if defined(SM64DS_PLATFORM_ANDROID)
+// Both the flat C call and the C++ member call use r0=self, r1=frames,
+// r2=arg2 on ARM. The x86 stack-discriminating trampolines are unnecessary.
+static int l2_eb2c_s0c(void *self, int frames, int arg2)
+{ return l2_eb2c_s0c_body(self, frames, arg2); }
+static int l2_eb2c_s10(void *self, int frames, int arg2)
+{ return l2_eb2c_s10_body(self, frames, arg2); }
+#else
 __declspec(naked) static void l2_eb2c_s0c(void)
 {
     __asm {
@@ -2011,23 +2056,25 @@ __declspec(naked) static void l2_eb2c_s10(void)
     }
 }
 
+#endif
+
 /* +0x14, +0x18 and +0x1c. The three predicates, through the flat faces two
    other hal files already own. +0x1c is the one that must NOT be a qualified
    call for l2_ea6c_s1c's reason: the matched IsBetweenStartAndEnd re-dispatches
    two slots, and the face in hal/fdr_arm9_fader_seat.cpp is the one that lands
    them on this object's ROM +0x14 and +0x18. */
-static int __fastcall l2_eb2c_s14(void *s, void *)
+static int __fastcall l2_eb2c_s14(void *s PORT_EDX)
 { l2_eb2c_note(5); return _ZN15FaderBrightness9IsAtStartEv(s); }
-static int __fastcall l2_eb2c_s18(void *s, void *)
+static int __fastcall l2_eb2c_s18(void *s PORT_EDX)
 { l2_eb2c_note(6); return _ZN15FaderBrightness7IsAtEndEv(s); }
-static int __fastcall l2_eb2c_s1c(void *s, void *)
+static int __fastcall l2_eb2c_s1c(void *s PORT_EDX)
 { l2_eb2c_note(7); return _ZN15FaderBrightness20IsBetweenStartAndEndEv(s); }
 
 /* +0x20 and +0x24. Both matched, both non-virtual in the header, so a
    qualified call is a direct call and no host vtable is read. */
-static void __fastcall l2_eb2c_s20(void *s, void *)
+static void __fastcall l2_eb2c_s20(void *s PORT_EDX)
 { l2_eb2c_note(8); ((FaderBrightness *)s)->FaderBrightness::SetToEnd(); }
-static void __fastcall l2_eb2c_s24(void *s, void *)
+static void __fastcall l2_eb2c_s24(void *s PORT_EDX)
 { l2_eb2c_note(9); ((FaderBrightness *)s)->FaderBrightness::SetToStart(); }
 
 /* THE SAME DEFECT, ONE TABLE OVER, HARDENED RATHER THAN SEATED.
@@ -2083,9 +2130,9 @@ static void l2_ea6c_selftest(void)
         const int want_start = fb->FaderBrightness::IsAtStart();
         const int want_end = fb->FaderBrightness::IsAtEnd();
         const int want_between = (want_start == 0 && want_end == 0) ? 1 : 0;
-        const int got_start = ((L2Ea6cSlot)data_0208ea6c[5])(&p, 0);
-        const int got_end = ((L2Ea6cSlot)data_0208ea6c[6])(&p, 0);
-        const int got_between = ((L2Ea6cSlot)data_0208ea6c[7])(&p, 0);
+        const int got_start = ((L2Ea6cSlot)data_0208ea6c[5])(&p PORT_EDX_ARG(0));
+        const int got_end = ((L2Ea6cSlot)data_0208ea6c[6])(&p PORT_EDX_ARG(0));
+        const int got_between = ((L2Ea6cSlot)data_0208ea6c[7])(&p PORT_EDX_ARG(0));
         const int kept = (p.speed == sentinel);
         const int ok = got_start == want_start && got_end == want_end &&
                        got_between == want_between && kept;
@@ -2221,17 +2268,17 @@ static void l2_sib_note(int tab, int slot)
     std::fflush(stdout);
 }
 
-static void *__fastcall l2_eacc_s00(void *s, void *)
+static void *__fastcall l2_eacc_s00(void *s PORT_EDX)
 { l2_sib_note(0, 0); return (void *)_ZN15FaderBrightnessD1Ev((int *)s); }
-static void *__fastcall l2_eacc_s04(void *s, void *)
+static void *__fastcall l2_eacc_s04(void *s PORT_EDX)
 { l2_sib_note(0, 1); return _ZN15FaderBrightnessD0Ev(s); }
-static void *__fastcall l2_eafc_s00(void *s, void *)
+static void *__fastcall l2_eafc_s00(void *s PORT_EDX)
 { l2_sib_note(1, 0); _ZN5FaderD1Ev((int *)s); return s; }
-static void *__fastcall l2_eafc_s04(void *s, void *)
+static void *__fastcall l2_eafc_s04(void *s PORT_EDX)
 { l2_sib_note(1, 1); return _ZN5FaderD0Ev(s); }
-static void *__fastcall l2_eb2c_s00(void *s, void *)
+static void *__fastcall l2_eb2c_s00(void *s PORT_EDX)
 { l2_sib_note(2, 0); return (void *)_ZN10FaderColorD1Ev((int *)s); }
-static void *__fastcall l2_eb2c_s04(void *s, void *)
+static void *__fastcall l2_eb2c_s04(void *s PORT_EDX)
 { l2_sib_note(2, 1); return _ZN10FaderColorD0Ev(s); }
 
 /* ---- THE FOUR FADER VTABLES ARE SEATED BEFORE main -----------------------
@@ -2997,6 +3044,7 @@ struct Matrix4x3;
 struct Vector3;
 struct ModelComponents { void Render(Matrix4x3 *mat, Vector3 *vec); };
 // PORT_HOST_ABI: receiver-delivery face for a __thiscall member; the ov007 flat-name caller makes three __cdecl pushes, so the matched TU would take `this` out of ECX wrongly. This __cdecl definition makes the member call so MSVC emits the mov ecx the ROM's r0 always was.
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void _ZN15ModelComponents6RenderEP9Matrix4x3P7Vector3(void *thiz,
                                                                  void *mat,
                                                                  void *vec)
@@ -3004,6 +3052,7 @@ extern "C" void _ZN15ModelComponents6RenderEP9Matrix4x3P7Vector3(void *thiz,
     ((ModelComponents *)thiz)->ModelComponents::Render((Matrix4x3 *)mat,
                                                        (Vector3 *)vec);
 }
+#endif
 //     ...and TWO MORE OF THE SAME SHAPE in the SaveData family, faced by run
 //     link60 Stage 5 lane SV1 in the commit that made them fire. Their TUs are
 //     in the slice and define real C++ members while their ov007 callers spell
@@ -3079,6 +3128,7 @@ struct SaveData {
     static void SetDefaultValues(FileSaveData *fsd);
     static void SetDefaultValuesMg(MinigameSaveData *mg);
 };
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void _ZN8SaveData16SetDefaultValuesEP12FileSaveData(void *blk)
 {
     SaveData::SetDefaultValues((FileSaveData *)blk);
@@ -3087,6 +3137,7 @@ extern "C" void _ZN8SaveData18SetDefaultValuesMgEP16MinigameSaveData(void *blk)
 {
     SaveData::SetDefaultValuesMg((MinigameSaveData *)blk);
 }
+#endif
 //     THE THIRD OF THE FAMILY STAYS A DIRECTIVE AND THAT IS NOT AN OVERSIGHT.
 //     SaveData::SaveFile decorates SA, not QAE: a STATIC member, which MSVC
 //     emits __cdecl with no receiver at all, so the flat name's two pushes land
@@ -3126,10 +3177,7 @@ extern "C" void _ZN8SaveData18SetDefaultValuesMgEP16MinigameSaveData(void *blk)
    the two Virtual3x are the ones this file needs, so this file declares them
    non-virtual and hal/scene_actor_faces.cpp -- which includes the real header
    -- carries everything that has to be a virtual method. */
-struct ActorBase {
-    int Virtual34(unsigned a, unsigned b);           /* slot 13 body */
-    int Virtual38(unsigned a, unsigned b);           /* slot 14 body */
-};
+#include "host_actor_base.h"
 
 /* ==== THE TWO RECEIVER-BRIDGING FACES FOR "Player::St_EndingFly_Main" =====
 
@@ -3222,13 +3270,13 @@ void Player::St_EndingFly_Main()
 { func_ov007_020c3d1c(this); }
 
 // ---- the shared eleven -----------------------------------------------------
-static int  __fastcall sc_binit(void *s, void *)
+static int  __fastcall sc_binit(void *s PORT_EDX)
 { return _ZN8dScene_c19BeforeInitResourcesEv(s); }
-static void __fastcall sc_ainit(void *s, void *, unsigned a)
+static void __fastcall sc_ainit(void *s PORT_EDX, unsigned a)
 { port_scene_after_init(s, a); }
-static int  __fastcall sc_bclean(void *s, void *)
+static int  __fastcall sc_bclean(void *s PORT_EDX)
 { return _ZN8dScene_c22BeforeCleanupResourcesEv(s); }
-static void __fastcall sc_aclean(void *s, void *, unsigned a)
+static void __fastcall sc_aclean(void *s PORT_EDX, unsigned a)
 { _ZN8dScene_c21AfterCleanupResourcesEj(s, a); }
 /* SM64DS_TITLE_TRACE=1: SAY WHY THE SCENE'S TICK GATE CLOSED, on every edge.
  *
@@ -3359,7 +3407,7 @@ extern "C" int port_scene_force_kill(void)
     return 1;
 }
 
-static int  __fastcall sc_bbeh(void *s, void *)
+static int  __fastcall sc_bbeh(void *s PORT_EDX)
 {
     int r = _ZN8dScene_c14BeforeBehaviorEv(s);
     g_sc_obj = s;
@@ -3375,22 +3423,22 @@ static int  __fastcall sc_bbeh(void *s, void *)
    in front of it. Without it, "BeforeBehavior asked 510" on a run whose list
    was walked 600 times has two readings and neither can be ruled out. */
 static unsigned g_sc_after_beh;
-static void __fastcall sc_abeh(void *s, void *, unsigned a)
+static void __fastcall sc_abeh(void *s PORT_EDX, unsigned a)
 { ++g_sc_after_beh; port_scene_after_behavior(s, a); }
-static int  __fastcall sc_bren(void *s, void *)
+static int  __fastcall sc_bren(void *s PORT_EDX)
 { int r = _ZN8dScene_c12BeforeRenderEv(s); sc_gate_report("ren", s, r); return r; }
-static void __fastcall sc_aren(void *s, void *, unsigned a)
+static void __fastcall sc_aren(void *s PORT_EDX, unsigned a)
 { port_scene_after_render(s, a); }
-static int  __fastcall sc_v34(void *s, void *, unsigned a, unsigned b)
+static int  __fastcall sc_v34(void *s PORT_EDX, unsigned a, unsigned b)
 { return ((ActorBase *)s)->ActorBase::Virtual34(a, b); }
-static int  __fastcall sc_v38(void *s, void *, unsigned a, unsigned b)
+static int  __fastcall sc_v38(void *s PORT_EDX, unsigned a, unsigned b)
 { return ((ActorBase *)s)->ActorBase::Virtual38(a, b); }
-static int  __fastcall sc_heap(void *s, void *)
+static int  __fastcall sc_heap(void *s PORT_EDX)
 { return port_scene_on_heap_created(s); }
 /* slots 0 and 3, which only a minigame table holds unoverridden. Not veneers. */
-static int  __fastcall sc_base_init(void *s, void *)
+static int  __fastcall sc_base_init(void *s PORT_EDX)
 { return port_scene_base_init(s); }
-static int  __fastcall sc_base_clean(void *s, void *)
+static int  __fastcall sc_base_clean(void *s PORT_EDX)
 { return port_scene_base_cleanup(s); }
 
 /* THE 18-SLOT SHAPE IS HARDCODED HERE, AND IT IS AN ov003 FINDING RATHER THAN
@@ -3514,24 +3562,24 @@ extern "C" unsigned port_scene_fill_rom(void **vt, unsigned n)
 // times the ROM's own processing lists actually entered ov003 code, which is
 // the only evidence that the chain is live rather than merely linked.
 static unsigned g_ss_hits[18];
-static int  __fastcall ss_init(void *s, void *)
+static int  __fastcall ss_init(void *s PORT_EDX)
 { ++g_ss_hits[0];  _ZN12dScStarSel_c13InitResourcesEv(s); return 1; }
-static int  __fastcall ss_clean(void *, void *)
+static int  __fastcall ss_clean(void * PORT_EDX)
 { ++g_ss_hits[3];  return _ZN12dScStarSel_c16CleanupResourcesEv(); }
-static int  __fastcall ss_beh(void *s, void *)
+static int  __fastcall ss_beh(void *s PORT_EDX)
 { ++g_ss_hits[6];  return _ZN12dScStarSel_c8BehaviorEv(s); }
-static int  __fastcall ss_render(void *s, void *)
+static int  __fastcall ss_render(void *s PORT_EDX)
 { ++g_ss_hits[9];  return _ZN12dScStarSel_c6RenderEv(s); }
-static int  __fastcall ss_pdes(void *, void *)
+static int  __fastcall ss_pdes(void * PORT_EDX)
 { ++g_ss_hits[12]; _ZN12dScStarSel_c16OnPendingDestroyEv(); return 0; }
 /* the SM64DS_SCENE_SLOT9=0 stand-in. Counted separately so a run can never
    read its no-op as the real Render having run. */
 static unsigned g_ss_render_skipped;
-static int  __fastcall ss_render_noop(void *, void *)
+static int  __fastcall ss_render_noop(void * PORT_EDX)
 { ++g_ss_render_skipped; return 1; }
-static void *__fastcall ss_d2(void *s, void *)
+static void *__fastcall ss_d2(void *s PORT_EDX)
 { return (void *)(size_t)_ZN12dScStarSel_cD1Ev(s); }
-static void *__fastcall ss_d0(void *s, void *)   { return _ZN12dScStarSel_cD0Ev(s); }
+static void *__fastcall ss_d0(void *s PORT_EDX)   { return _ZN12dScStarSel_cD0Ev(s); }
 
 /* ov003's MOUNT PATCH, AND NOTHING WAS CALLING IT. Run link100, lane SCENES1.
 
@@ -3641,24 +3689,24 @@ static unsigned g_go_hits[18];
    D2 ONLY -- D0 deallocates the object, so reading it back after that one
    would be a use-after-free. */
 static void *g_go_vptr_after_d2;
-static int  __fastcall go_init(void *s, void *)
+static int  __fastcall go_init(void *s PORT_EDX)
 { ++g_go_hits[0];  return _ZN13dScGameOver_c13InitResourcesEv(s); }
-static int  __fastcall go_clean(void *, void *)
+static int  __fastcall go_clean(void * PORT_EDX)
 { ++g_go_hits[3];  return _ZN13dScGameOver_c16CleanupResourcesEv(); }
-static int  __fastcall go_beh(void *s, void *)
+static int  __fastcall go_beh(void *s PORT_EDX)
 { ++g_go_hits[6];  return _ZN13dScGameOver_c8BehaviorEv(s); }
-static int  __fastcall go_render(void *s, void *)
+static int  __fastcall go_render(void *s PORT_EDX)
 { ++g_go_hits[9];  return _ZN13dScGameOver_c6RenderEv(s); }
-static int  __fastcall go_pdes(void *, void *)
+static int  __fastcall go_pdes(void * PORT_EDX)
 { ++g_go_hits[12]; _ZN13dScGameOver_c16OnPendingDestroyEv(); return 0; }
-static void *__fastcall go_d2(void *s, void *)
+static void *__fastcall go_d2(void *s PORT_EDX)
 {
     ++g_go_hits[16];
     void *r = (void *)_ZN13dScGameOver_cD1Ev(s);
     g_go_vptr_after_d2 = *(void **)s;
     return r;
 }
-static void *__fastcall go_d0(void *s, void *)
+static void *__fastcall go_d0(void *s PORT_EDX)
 { ++g_go_hits[17]; return (void *)_ZN13dScGameOver_cD0Ev(s); }
 
 static void scene_fill_gameover(void)
@@ -3835,7 +3883,7 @@ static void ti_ae558_notice(void)
     std::fflush(stderr);
 }
 #endif
-static int  __fastcall ti_init(void *s, void *)
+static int  __fastcall ti_init(void *s PORT_EDX)
 {
     ++g_ti_hits[0];
 #if PORT_OV007_RIDETHROUGH_UNSEATED
@@ -3846,9 +3894,9 @@ static int  __fastcall ti_init(void *s, void *)
 #endif
     return _ZN9dScDSMT_c13InitResourcesEv((char *)s);
 }
-static int  __fastcall ti_clean(void *, void *)
+static int  __fastcall ti_clean(void * PORT_EDX)
 { ++g_ti_hits[3];  return _ZN9dScDSMT_c16CleanupResourcesEv(); }
-static int  __fastcall ti_beh(void *s, void *)
+static int  __fastcall ti_beh(void *s PORT_EDX)
 { ++g_ti_hits[6];  return _ZN9dScDSMT_c8BehaviorEv((char *)s); }
 #if PORT_OV007_MCRENDER_UNSEATED
 /* SCENE 1'S BLOCKER AFTER THE IMPLICIT-r0 SEAM WAS SEATED, run link60 lane
@@ -3892,7 +3940,7 @@ static void ti_mcrender_notice(void)
     std::fflush(stderr);
 }
 #endif
-static int  __fastcall ti_render(void *s, void *)
+static int  __fastcall ti_render(void *s PORT_EDX)
 {
     ++g_ti_hits[9];
 #if PORT_OV007_MCRENDER_UNSEATED
@@ -3900,12 +3948,12 @@ static int  __fastcall ti_render(void *s, void *)
 #endif
     return _ZN9dScDSMT_c6RenderEv(s);
 }
-static int  __fastcall ti_pdes(void *, void *)
+static int  __fastcall ti_pdes(void * PORT_EDX)
 { ++g_ti_hits[12]; _ZN9dScDSMT_c16OnPendingDestroyEv(); return 0; }
 /* the SM64DS_SCENE_SLOT9=0 stand-in, counted separately for the same reason
    ss_render_noop is: a no-op must never read as the real body having run. */
 static unsigned g_ti_render_skipped;
-static int  __fastcall ti_render_noop(void *, void *)
+static int  __fastcall ti_render_noop(void * PORT_EDX)
 { ++g_ti_render_skipped; return 1; }
 /* SM64DS_SCENE_SLOT0=0, the same diagnostic one slot up, and it exists for a
    blocker that is not the port's: dScDSMT_c::InitResources dies inside an
@@ -3914,10 +3962,10 @@ static int  __fastcall ti_render_noop(void *, void *)
    retire probe re-runs the bare scene every pass, so the moment
    func_ov007_020c9688 gets a body this stops being needed and says so. */
 static unsigned g_ti_init_skipped;
-static int  __fastcall ti_init_noop(void *, void *)
+static int  __fastcall ti_init_noop(void * PORT_EDX)
 { ++g_ti_init_skipped; return 1; }
-static void *__fastcall ti_d2(void *s, void *) { return _ZN9dScDSMT_cD1Ev((int *)s); }
-static void *__fastcall ti_d0(void *s, void *) { return _ZN9dScDSMT_cD0Ev((int *)s); }
+static void *__fastcall ti_d2(void *s PORT_EDX) { return _ZN9dScDSMT_cD1Ev((int *)s); }
+static void *__fastcall ti_d0(void *s PORT_EDX) { return _ZN9dScDSMT_cD0Ev((int *)s); }
 /* graphCallback_c, AND THE ONE CONVENTION IN THIS FILE THAT IS CDECL (run
    link100, rung G2(a), lane R3G).
  *
@@ -6478,6 +6526,7 @@ static void port_title_attract_probe(int frame, const char *when)
  * printed value is the NEW one. Both are stated in the output.
  *
  * Cost when the variable is unset: one pointer test per frame. */
+#ifdef _WIN32
 static unsigned t3w_addr[4];
 static unsigned t3w_last[4];
 static int      t3w_n;
@@ -6730,6 +6779,20 @@ static void t3w_report(void)
                      t3w_rows[i].first_val, t3w_rows[i].last_val);
     std::fflush(stderr);
 }
+
+#else
+// Optional x86 diagnostic only; never suppress a requested watch silently.
+static void t3w_tick(int, const char *)
+{
+    static bool reported = false;
+    if (!reported && std::getenv("SM64DS_T3_WATCH")) {
+        std::fprintf(stderr, "[t3watch] unavailable: Windows x86 debug registers "
+                     "are required; Android game execution is unaffected\n");
+        reported = true;
+    }
+}
+static void t3w_report(void) {}
+#endif
 
 /* TITLE LANE DIAGNOSTIC, run mg12. SM64DS_SCENE_TITLE_ALLOC=1 prints the title
    screen's own allocation map once, at the end of the run, and answers ONE

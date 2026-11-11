@@ -308,6 +308,7 @@ struct PortMemCounters {
 #include "hal/pad_backend.h"
 #include "hal/scene_frame_shared.h"  /* shared PC/Android original scene-frame order */
 #include "hal/title_handoff_shared.h"  /* shared ROM StartFile/level handoff */
+#include "hal/level_handoff_shared.h"
 typedef PortPadState XPad;
 
 static bool winapi_load(void)
@@ -9379,7 +9380,7 @@ int main(void)
     char *stage = 0;
     if (real_boot) {
         stage = (char *)port_stage_create();
-        g_mc = stage + 0x91c;
+        g_mc = sm64ds_port::stage_collision(stage);
     } else {
         g_mc = mc_storage;
         _ZN7dBgW_KcC1Ev(mc_storage);

@@ -54,6 +54,10 @@ jobs:
             port/android/scene_input.cpp port/android/tests/scene_input_test.cpp \
             -o /tmp/scene_input_test
           /tmp/scene_input_test
+      - name: Test Android scene teardown readable memory guard
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Iport             port/hal/readable_guard.cpp port/android/tests/readable_guard_test.cpp             -o /tmp/readable_guard_test
+          /tmp/readable_guard_test
       - name: Verify original title scene finish and level commit ordering
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Iport             port/android/tests/title_handoff_test.cpp -o /tmp/title_handoff_test

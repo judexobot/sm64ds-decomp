@@ -95,13 +95,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
-/* IsBadReadPtr, for the two places here that have to read an actor whose
-   pointer may already be torn (port_level_name_survivors on the decline path
-   and the scene-tree drop). It is the same guard port_q_is_frozen and
-   port_q_actor_id in port/unmatched/func_02043fdc_hostcopy.cpp have carried since
-   playlog 041729, and this file needs it for the same reason. */
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
+/* Keep PC's retired-actor safety check on Android, without importing
+   Windows headers or attempting to dereference inaccessible mapped pages. */
+#include "readable_guard.h"
 
 #include "hal/comms_seam.h"   /* run mg16 lane MP3: port::vs_player_count() */
 
@@ -463,7 +459,7 @@ static void port_level_name_survivors(void)
             /* the freeze check is pointer identity first and is itself guarded,
                so it is safe on a torn pointer */
             const int frozen = port_quarantine_is_frozen(a);
-            if (IsBadReadPtr(a, 0x10)) {
+            if (port_host_bad_read_ptr(a, 0x10)) {
                 std::fprintf(stderr, "  [lvl]   STILL LIVE: actor %p id "
                              "UNREADABLE (the owner word is torn -- a stray "
                              "write, not a cleanup that never ran) on the %s "
@@ -543,7 +539,7 @@ static int port_level_drop_frozen(void)
                 n = next;
                 continue;
             }
-            if (IsBadReadPtr(a, 0x10))
+            if (port_host_bad_read_ptr(a, 0x10))
                 std::fprintf(stderr, "  [lvl] %s list: REAPED frozen node %p "
                              "(actor %p id UNREADABLE) -- quarantined, so its "
                              "cleanup never ran\n", lists[i].name, (void *)n,
@@ -893,7 +889,7 @@ extern "C" int port_level_teardown(void)
         for (int i = sn - 1; i >= 0; --i) {
             int *nd = (int *)snode[i];
             char *a = (char *)(size_t)nd[4];
-            const int readable = a && !IsBadReadPtr(a, 0x10);
+            const int readable = a && !port_host_bad_read_ptr(a, 0x10);
             const int ok = func_0203b3c0(data_020a4b6c, nd);
             const char *verb = ok ? "DROPPED" : "COULD NOT DROP";
             if (!readable)

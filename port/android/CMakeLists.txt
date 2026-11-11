@@ -51,7 +51,8 @@ target_link_libraries(sm64ds_android_game_entry
 # These archives can carry unresolved original game symbols; the eventual
 # complete game .so must resolve them against the whole port/hal and src set.
 add_library(sm64ds_android_game_flow STATIC
-  ../hal/rom_frame.cpp ../hal/title_entry.cpp)
+  ../hal/rom_frame.cpp ../hal/title_entry.cpp
+  ../hal/level_change.cpp ../hal/readable_guard.cpp)
 target_include_directories(sm64ds_android_game_flow PUBLIC
   ../ntr/include .. .)
 target_link_libraries(sm64ds_android_game_flow

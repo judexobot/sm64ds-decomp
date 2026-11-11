@@ -1,0 +1,42 @@
+name: Android ARMv7 native core
+on:
+  push:
+    branches: ["android/**"]
+    paths:
+      - "port/ntr/**"
+      - "port/android/**"
+      - ".github/workflows/android-native.yml"
+  pull_request:
+    paths:
+      - "port/ntr/**"
+      - "port/android/**"
+      - ".github/workflows/android-native.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  android-native:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check preinstalled Android SDK
+        run: |
+          test -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" || command -v sdkmanager
+      - name: Install NDK
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --install "ndk;27.2.12479018"
+      - name: Configure native ARMv7
+        run: |
+          cmake -S port/android -B build/android-armv7 -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/27.2.12479018/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=armeabi-v7a -DANDROID_PLATFORM=android-28 \
+            -DCMAKE_BUILD_TYPE=Release
+      - name: Cross-compile native core
+        run: cmake --build build/android-armv7 --parallel 4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sm64ds-android-armv7-core
+          path: |
+            build/android-armv7/libsm64ds_android_core.a
+            build/android-armv7/android_runtime_test
+          if-no-files-found: error

@@ -55,6 +55,9 @@ add_library(sm64ds_android_game_flow STATIC
   ../hal/level_change.cpp ../hal/readable_guard.cpp
   ../hal/boot_os.cpp ../hal/romdata_loader.cpp ../hal/rom_main.cpp
   ../hal/boot_arms.cpp ../hal/os_thread.cpp
+  ../hal/sdat/consumer.cpp ../hal/sdat/mixer.cpp
+  ../hal/sdat/sdat.cpp ../hal/sdat/sseq.cpp
+  ../hal/sdat/sound_abi.cpp ../hal/sdat/sound_bss.cpp
   asset_root_refuse_android.cpp)
 target_include_directories(sm64ds_android_game_flow PUBLIC
   ../ntr/include .. .)
@@ -65,3 +68,7 @@ target_link_libraries(sm64ds_android_game_flow
 # no Nintendo bytes in Android libraries. The generated romdata_dispatch.c
 # and exact metadata-only PC release recipe must be supplied before link.
 target_compile_definitions(sm64ds_android_game_flow PRIVATE PORT_ROM_CLEAN=1)
+# Reuse the original Nintendo DS 16-voice SDAT mixer with Android AAudio,
+# NOT Windows' out_win.cpp or any substitute synthesized tracks.
+target_link_libraries(sm64ds_android_game_flow PRIVATE sm64ds_android_audio)
+

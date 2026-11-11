@@ -84,6 +84,9 @@
 #include <cstring>       /* run mg16 lane MP3: the touch-ring store */
 
 #include "ntr/ppu.h"
+#if defined(SM64DS_PLATFORM_ANDROID)
+#include "../android/touch_input.h"
+#endif
 #include "hal/comms_seam.h"   /* run mg16 lane MP3: touch_ring_index/advance */
 
 #include "hal/screen_gap.h"
@@ -635,6 +638,20 @@ void poll_touch(void)
             sy = data_020a0de8[3];
         }
     }
+#if defined(SM64DS_PLATFORM_ANDROID)
+    // On Android the user touches the actual DS sub-screen viewport (not a
+    // Windows cursor). The controller View already mapped pixels to 256x192.
+    // Feed the same down/x/y record the original game's TouchInfo and ARM7
+    // communication code read below; preserve release edges and drag state.
+    sm64ds_android::StylusState android_touch{};
+    if (sm64ds_android::stylus_poll(&android_touch)) {
+        down = android_touch.down ? 1 : 0;
+        sx = static_cast<unsigned char>(android_touch.x);
+        sy = static_cast<unsigned char>(android_touch.y);
+        live_seen = live_on = down ? 1 : 0;
+        live_clamped = 0;
+    }
+#endif
     if (g_tp_n < 0) touch_probe_parse();
     const int f = g_tp_frame++;
     g_tp_cur = f;

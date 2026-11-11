@@ -54,6 +54,7 @@
  * The cost is that formerly-uninitialized hosted globals are now zero-filled in
  * the image rather than demand-zeroed (~35 KB of exe). They stay writable: the
  * `write` attribute is part of what is being pinned. */
+#if defined(_MSC_VER)
 #pragma section(".dsstate$mmm", read, write)
 
 /* Route every plain global between these two markers into the captured span.
@@ -86,5 +87,13 @@
 #define DSSTATE_END                                                            \
     __pragma(bss_seg())                                                        \
     __pragma(data_seg())
+#else
+/* Android/Clang does not support MSVC's section-range directives. The
+ * platform-specific savestate implementation must allocate its own data
+ * section and bounds before enabling save-state capture. Do not silently
+ * claim Android save-state support merely because this compiles. */
+#define DSSTATE_BEGIN
+#define DSSTATE_END
+#endif
 
 #endif /* PORT_HAL_DSSTATE_SEG_H */

@@ -53,7 +53,9 @@ target_link_libraries(sm64ds_android_game_entry
 add_library(sm64ds_android_game_flow STATIC
   ../hal/rom_frame.cpp ../hal/title_entry.cpp
   ../hal/level_change.cpp ../hal/readable_guard.cpp
-  ../hal/boot_os.cpp ../hal/romdata_loader.cpp)
+  ../hal/boot_os.cpp ../hal/romdata_loader.cpp ../hal/rom_main.cpp
+  ../hal/boot_arms.cpp ../hal/os_thread.cpp
+  asset_root_refuse_android.cpp)
 target_include_directories(sm64ds_android_game_flow PUBLIC
   ../ntr/include .. .)
 target_link_libraries(sm64ds_android_game_flow

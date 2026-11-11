@@ -54,6 +54,10 @@ jobs:
             port/android/scene_input.cpp port/android/tests/scene_input_test.cpp \
             -o /tmp/scene_input_test
           /tmp/scene_input_test
+      - name: Verify Android ROM-clean missing/mismatched asset refusals
+        run: |
+          g++ -std=c++17 -Wall -Wextra -Werror -Iport             port/android/asset_root_refuse_android.cpp             port/android/tests/asset_root_refuse_test.cpp             -o /tmp/asset_root_refuse_test
+          /tmp/asset_root_refuse_test
       - name: Test Android scene teardown readable memory guard
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -Iport             port/hal/readable_guard.cpp port/android/tests/readable_guard_test.cpp             -o /tmp/readable_guard_test

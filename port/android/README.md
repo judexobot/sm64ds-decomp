@@ -64,8 +64,13 @@ checked into source or packed into public CI artifacts.
 
 - `libsm64ds_android_game_flow.a` now cross-compiles genuine
   `rom_frame.cpp`, `title_entry.cpp`, `level_change.cpp` and the original
-  `boot_os.cpp` pre-main/game-heap initialization, plus the ROM-clean
+  `boot_os.cpp` pre-main/game-heap initialization, `rom_main.cpp`,
+  `boot_arms.cpp`, the DS thread pump `os_thread.cpp`, plus the ROM-clean
   `romdata_loader.cpp` compiled with `PORT_ROM_CLEAN=1`.
+  Android uses an app-private version of the PC `port_asset_root_refuse`
+  and `port_asset_mismatch_refuse`: no developer-root fallback, no Win32
+  dialog; a missing or mismatched ROM-clean dataset exits with code 2 and
+  writes `startup_error.txt` when a safe private root is configured.
   These compile but still have unresolved original game symbols and must be
   linked against the full translated game, generated ROM dispatch and HAL.
   The Android title adapter now invokes PC's real `port_scene_finish` then

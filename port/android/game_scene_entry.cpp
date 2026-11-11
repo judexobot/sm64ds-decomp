@@ -24,6 +24,7 @@ extern char data_0209f49c[];            // Ctrl held (0x18 stride)
 extern char data_0209f49e[];            // Ctrl pressed (0x18 stride)
 extern unsigned short data_020a0e58[];  // PadData held+pressed, 4-byte stride
 extern unsigned short data_020a0e5a[];  // split PadData pressed alias
+int port_title_entry_should_stop(void); // original ROM file-select -> stage request
 int hal_sub_screen_stacked(void);
 unsigned int *hal_sub_screen_stacked_image(const unsigned int *top);
 void hal_sub_screen_stacked_size(int *w, int *h);
@@ -31,6 +32,7 @@ void hal_sub_screen_stacked_size(int *w, int *h);
 namespace sm64ds_android {
 namespace {
 bool started = false;
+bool handoff_pending = false;
 int current_frame = 0;
 SceneInput scene_input;
 }
@@ -54,11 +56,13 @@ SceneGameStatus scene_game_begin(const char *asset_root) {
     sm64ds_port::scene_frame_begin("Android original ROM scene loop");
     scene_input.reset();
     current_frame = 0;
+    handoff_pending = false;
     started = true;
     return SceneGameStatus::ok;
 }
 SceneGameStatus scene_game_frame() {
     if (!started) return SceneGameStatus::not_started;
+    if (handoff_pending) return SceneGameStatus::level_handoff_required;
     const auto *fb = static_cast<const ntr::Framebuffer *>(port_scene_framebuffer());
     if (!fb) return SceneGameStatus::frame_missing;
 
@@ -93,6 +97,14 @@ SceneGameStatus scene_game_frame() {
     }
     sm64ds_port::scene_frame_complete(true);
     ++current_frame;
+    // The original PC title exits its scene loop AFTER the frame foot when
+    // file select requests Stage (id 3) and the scene has torn itself down.
+    // Do not tick a dead scene, fake a level or silently restart the title.
+    // The full native level boot must be linked before consuming the handoff.
+    if (port_title_entry_should_stop()) {
+        handoff_pending = true;
+        return SceneGameStatus::level_handoff_required;
+    }
     return presented ? SceneGameStatus::ok : SceneGameStatus::no_surface;
 }
 int scene_game_frame_count() { return current_frame; }

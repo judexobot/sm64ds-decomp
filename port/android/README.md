@@ -62,6 +62,35 @@ to copy its selected Uri into app-private storage; that helper calls the NTR
 ROM validation and keeps no network dependency. Nintendo assets must never be
 checked into source or packed into public CI artifacts.
 
+## Real original-scene game loop now under port
+
+The Android adapter `game_scene_entry.cpp` calls `port_scene_begin` (original
+title scene 1 / real scene selection), `port_scene_tick` and
+`port_scene_framebuffer` from the advanced PC port instead of drawing an
+approximate replacement. The actual PC `scene_window_run` loop was also
+changed to use `hal/scene_frame_shared.h`, with its original order preserved:
+platform input -> ROM scene tick -> full dual-screen present -> paused audio
+service -> ROM phase-6 frame foot.
+
+`scene_input.cpp` converts the native touch gamepad snapshot into the
+original NDS PadData held/pressed words and Ctrl held/pressed records. It uses
+the original game convention (DS B = jump, A = attack, Y = run, R = crouch)
+while preserving the PC-facing Android A=jump/B=attack/X=run mapping, and
+generates one-frame press edges and release edges. The scene's real
+`port_host_keys_set` receives the same raw keys, including DS Start,
+Select and d-pad. This is a single-player scene path; online multiplayer
+fan-out, level controls and the post-file-select level handoff are still
+separate work.
+
+The adapter now identifies the game's actual file-select-to-stage request
+through `port_title_entry_should_stop`; it returns
+`level_handoff_required` rather than ticking a destroyed title or faking a
+level. **The actual level-load/boot path is not yet linked to Android.**
+The adapter compiles into `libsm64ds_android_game_entry.a`, a static archive
+with genuine unresolved references to the PC game that must be fulfilled
+by a complete native game link. It is NOT part of the running JNI .so yet,
+and is NOT a playable APK.
+
 ## Android integration still required before shipping a real APK
 
 1. Separate the real game loop, title, stage/scene rendering and controls from

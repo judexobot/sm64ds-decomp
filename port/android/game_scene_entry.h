@@ -8,7 +8,7 @@ namespace sm64ds_android {
 // entire PC game closure (currently blocked on Windows-specific sources).
 enum class SceneGameStatus {
     ok, already_started, no_assets, game_boot_failed, not_started,
-    frame_missing, no_surface
+    frame_missing, no_surface, level_handoff_required
 };
 SceneGameStatus scene_game_begin(const char *asset_root);
 SceneGameStatus scene_game_frame();

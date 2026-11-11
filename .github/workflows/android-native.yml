@@ -2,7 +2,7 @@ name: Android native port build
 on:
   push:
     branches: ["android/**"]
-    paths: ["port/ntr/**", "port/android/**", ".github/workflows/android-native.yml"]
+    paths: ["port/ntr/**", "port/android/**", "port/hal/scene_frame_shared.h", "port/tests/walk_window.cpp", ".github/workflows/android-native.yml"]
   pull_request:
     paths: ["port/ntr/**", "port/android/**", ".github/workflows/android-native.yml"]
   workflow_dispatch:
@@ -54,6 +54,17 @@ jobs:
             port/android/scene_input.cpp port/android/tests/scene_input_test.cpp \
             -o /tmp/scene_input_test
           /tmp/scene_input_test
+      - name: Assert PC scene loop invokes same native scene-frame seam
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          pc = Path("port/tests/walk_window.cpp").read_text()
+          assert '#include "hal/scene_frame_shared.h"' in pc
+          assert 'sm64ds_port::scene_frame_begin("scene loop");' in pc
+          assert 'sm64ds_port::scene_frame_simulate(frame, !menu_on);' in pc
+          assert 'sm64ds_port::scene_frame_complete(!menu_on);' in pc
+          print("PC and Android scene-frame seam is shared")
+          PY
   android-native:
     runs-on: ubuntu-latest
     steps:

@@ -147,6 +147,7 @@ int main() {
     assert(metadata.find("ovt9_offset\t608") != std::string::npos);
     assert(read_text(target+"/build/assets/nitrofs_fnt.bin").size() == 34);
     assert(read_text(target+"/build/assets/nitrofs_ovt9.bin").size() == 32);
+    assert(read_text(target+"/extracted/overlays/overlay_0000.bin").size() == OVLEN);
     assert(!read_text(target+"/build/assets/android_extract.ready").empty());
 
     // A BLZ-compressed overlay decodes the same full handle table and assets.
@@ -158,6 +159,7 @@ int main() {
            sm64ds_android::AssetStatus::ok);
     assert(st.handles == 0x80A && st.extracted_bytes == 4);
     assert(read_text(target+"/extracted/dsd/files/data/test.bmd") == "BMD0");
+    assert(read_text(target+"/extracted/overlays/overlay_0000.bin").size() == OVLEN);
 
     // Wrong version of the handle table must refuse, NOT fabricate a map.
     image = fake_rom();

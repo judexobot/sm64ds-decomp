@@ -33,6 +33,17 @@ jobs:
             port/android/touch_input.cpp port/android/tests/touch_input_test.cpp \
             -o /tmp/touch_input_test
           /tmp/touch_input_test
+  romdata-recipe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rebuild and SHA-verify synthetic PC ROM data with Java 8
+        run: |
+          mkdir -p /tmp/romdata-classes
+          javac -source 8 -target 8 -d /tmp/romdata-classes \
+            port/android/java/dev/judexobot/sm64ds/RomDataRebuilder.java \
+            port/android/tests/RomDataRebuilderTest.java
+          java -cp /tmp/romdata-classes dev.judexobot.sm64ds.RomDataRebuilderTest
   android-native:
     runs-on: ubuntu-latest
     steps:

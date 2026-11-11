@@ -334,10 +334,20 @@ AssetStatus prepare_pc_assets(const char *rom_path, const char *private_root, As
     const uint32_t arm7_off = rd32(rom.data() + 0x30);
     const uint32_t arm7_size = rd32(rom.data() + 0x3c);
     if (arm9_off || arm9_size) {
-        if (!rom_span(rom, arm9_off, arm9_size) ||
-            !atomic_write(root + "/extracted/arm9.bin",
-                          rom.data() + arm9_off, arm9_size))
+        if (!rom_span(rom, arm9_off, arm9_size))
             return AssetStatus::invalid_rom_metadata;
+        std::vector<uint8_t> arm9(rom.begin() + arm9_off,
+                                  rom.begin() + arm9_off + arm9_size);
+        if (!atomic_write(root + "/extracted/arm9.bin",
+                          arm9.data(), arm9.size()))
+            return AssetStatus::write_failure;
+        // The PC recipe reads the *decompressed* ARM9 image based at
+        // 0x02004000, never the compressed cartridge bytes.
+        if (!expand_blz(&arm9))
+            return AssetStatus::bad_overlay;
+        if (!atomic_write(root + "/extracted/arm9_dec.bin",
+                          arm9.data(), arm9.size()))
+            return AssetStatus::write_failure;
     }
     if (arm7_off || arm7_size) {
         if (!rom_span(rom, arm7_off, arm7_size) ||

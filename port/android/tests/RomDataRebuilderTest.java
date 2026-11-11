@@ -8,9 +8,10 @@ import java.nio.file.Path;
 import java.util.Arrays;
 
 public final class RomDataRebuilderTest {
-    static final String WHOLE = "cca6742ffcfab7b880f7c05e6768255f9f820fff480b3cf187fbe17b187f8fa0";
+    static final String WHOLE = "8ee0452ba8ede9e01da4a484850146a8f8fb06f3e53560d23525e55a9578f6bd";
     static final String A9 = "3a0634f664bc781e63d3940f8c62bbfae834f8b6113481fbbc49d6a1470006dc";
     static final String OV = "3ea2ad3a9a5acc8af34e4107f74c23257ff67f9c0ef4111486248e32638b49b1";
+    static final String BSS = "96a296d224f285c67bee93c30f8a309157f0daa35dc5b87e410b78630a09cfc7";
 
     static File write(Path root, String relative, String text) throws IOException {
         Path path = root.resolve(relative);
@@ -22,19 +23,20 @@ public final class RomDataRebuilderTest {
         Path root = Files.createTempDirectory("sm64ds-romdata-");
         write(root, "extracted/arm9_dec.bin", "DS!!\0\0\0\0");
         write(root, "extracted/overlays/overlay_0000.bin", "BMD0");
-        String recipeText = "# romdata-recipe v1 " + WHOLE + " 8\n" +
+        String recipeText = "# romdata-recipe v1 " + WHOLE + " 10\n" +
                 "0\t4\tarm9\t0\t" + A9 + "\n" +
-                "4\t4\tov000\t0\t" + OV + "\n";
+                "4\t4\tov000\t0\t" + OV + "\n" +
+                "8\t2\tarm9\t64\t" + BSS + "\n";
         File recipe = write(root, "kit/romdata.recipe.tsv", recipeText);
         File manifest = write(root, "kit/romdata.manifest",
-                "# romdata-manifest v1 " + WHOLE + " 8\n" +
-                "part\tromdata\t0\t8\t" + WHOLE + "\n");
+                "# romdata-manifest v1 " + WHOLE + " 10\n" +
+                "part\tromdata\t0\t10\t" + WHOLE + "\n");
         RomDataRebuilder.Result built = RomDataRebuilder.rebuild(root.toFile(), recipe, manifest);
-        if (built.length != 8 || built.rows != 2 || !WHOLE.equals(built.sha256))
+        if (built.length != 10 || built.rows != 3 || !WHOLE.equals(built.sha256))
             throw new AssertionError("wrong build metadata");
         Path blob = root.resolve("build/assets/romdata.bin");
         if (!Arrays.equals(Files.readAllBytes(blob),
-                "DS!!BMD0".getBytes(StandardCharsets.US_ASCII)))
+                new byte[] {'D', 'S', '!', '!', 'B', 'M', 'D', '0', 0, 0}))
             throw new AssertionError("ROM data bytes differ from recipe");
         if (!Files.isRegularFile(root.resolve("build/assets/romdata.ready")))
             throw new AssertionError("ready marker missing");

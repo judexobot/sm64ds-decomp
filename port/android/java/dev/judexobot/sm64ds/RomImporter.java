@@ -12,6 +12,23 @@ public final class RomImporter {
     private static final long MAX_ROM_BYTES = 64L * 1024 * 1024;
     private RomImporter() {}
 
+    /**
+     * Complete the ROM-clean asset step with metadata from the EXACT PC build.
+     * The matching recipe/manifest contain offsets and checksums only, no ROM
+     * content; they must be supplied with the final app build.
+     * Invoke from a worker thread, not Activity.onCreate().
+     */
+    public static RomDataRebuilder.Result finishPcAssets(
+            Context context, File matchingRecipe, File matchingManifest)
+            throws IOException {
+        File root = new File(new File(context.getFilesDir(), "game"), "pc-assets");
+        RomDataRebuilder.Result result =
+                RomDataRebuilder.rebuild(root, matchingRecipe, matchingManifest);
+        if (!NativeBridge.nativeSetAssetRoot(root.getAbsolutePath()))
+            throw new IOException("Cannot configure native PC asset root");
+        return result;
+    }
+
     public static File importEuropeanRom(Context context, Uri document) throws IOException {
         File folder = new File(context.getFilesDir(), "game");
         if (!folder.exists() && !folder.mkdirs()) throw new IOException("Cannot create game folder");

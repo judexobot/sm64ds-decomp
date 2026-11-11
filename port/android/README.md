@@ -15,6 +15,17 @@ to a Win32 frontend.
   testing on hardware.
 - Real NTR filesystem, BMD, GX/PPU, texturing, IPC and LZ77 engine modules.
 - Local import of user's own European ASMP .nds, with FAT/FNT validation.
+- On-device PC HAL resource preparation: files.tsv, handles.tsv recovered
+  from overlay 0 (including BLZ), original NitroFS tables, extracted named
+  files, game overlay modules and decompressed ARM9/ARM7 images.
+- Pure Java ROM-clean data reconstruction from a **matching, byte-free PC
+  kit recipe + manifest** (`RomDataRebuilder`) with SHA-256 validation per
+  symbol and for the entire romdata.bin. The exact recipe/manifest for this
+  version must be supplied at packaging time; NONE is invented or bundled
+  here. Both files contain no Nintendo asset bytes.
+- `RomImporter.finishPcAssets` wires the verified data root through JNI to
+  the original PC HAL's SM64DS_ASSET_ROOT environment setting, before
+  the as-yet-unlinked full game's boot thread.
 - SurfaceView + transparent TouchControlsView for Android portrait/landscape
   host layout (actual game should run in landscape).
 - Multi-touch joystick + A/B/X/Y, L/R, R2, Start and Select. Input is
@@ -38,6 +49,8 @@ to a Win32 frontend.
   the Android View classes; ARMv7 native .so/.a cross-compilation in CI.
 
 The CI artifact is a native library / Java classes and tests, *not* a game APK.
+The synthetic CI test reconstructs an eight-byte blob from fake cartridge
+samples; it does NOT confirm the actual EUR ROM or PC recipe.
 There is deliberately no mock game Activity and no fake playable artifact.
 
 ## Using your own ROM

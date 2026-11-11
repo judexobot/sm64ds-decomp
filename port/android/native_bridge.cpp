@@ -4,6 +4,9 @@
 #include "assets_extract.h"
 #include "ntr/ppu.h"
 #include <jni.h>
+#include <cstdlib>
+#include <cstring>
+#include <sys/stat.h>
 
 // Native bridge is intentionally tied to the real gameplay seams and the
 // local ROM. It does not run a fake screen or bypass the game boot.
@@ -64,4 +67,20 @@ Java_dev_judexobot_sm64ds_NativeBridge_nativePrepareAssets(
     env->ReleaseStringUTFChars(appPrivateRoot, root);
     env->ReleaseStringUTFChars(privateRomPath, rom);
     return static_cast<jint>(status);
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_dev_judexobot_sm64ds_NativeBridge_nativeSetAssetRoot(
+        JNIEnv *env, jclass, jstring appPrivateRoot) {
+    if (!appPrivateRoot) return JNI_FALSE;
+    const char *root = env->GetStringUTFChars(appPrivateRoot, nullptr);
+    if (!root) return JNI_FALSE;
+    struct stat st{};
+    const bool valid = root[0] == '/' &&
+        !std::strstr(root, "/../") && !std::strstr(root, "/./") &&
+        std::strlen(root) < 512 &&
+        stat(root, &st) == 0 && S_ISDIR(st.st_mode);
+    const bool installed = valid && setenv("SM64DS_ASSET_ROOT", root, 1) == 0;
+    env->ReleaseStringUTFChars(appPrivateRoot, root);
+    return installed ? JNI_TRUE : JNI_FALSE;
 }

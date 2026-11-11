@@ -17,6 +17,9 @@ public final class NativeBridge {
     public static native void nativeConfigureDisplay(int width, int height, int renderScale);
     /** Create PC HAL files.tsv, handles.tsv and original NitroFS files off the UI thread. */
     public static native int nativePrepareAssets(String appPrivateRom, String appPrivateRoot);
+    /** Point the PC game's original fs.cpp/sdat/romdata loaders at private assets.
+     * Call only after verifying the kit recipe and before starting gameplay. */
+    public static native boolean nativeSetAssetRoot(String appPrivateRoot);
     /** 0: EUR ASMP cart mounted. See port/android/rom_loader.h for errors. */
     public static native int nativeMountRom(String appPrivatePath);
 }

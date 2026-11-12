@@ -102,6 +102,13 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -Iport \
             port/android/tests/level_handoff_test.cpp -o /tmp/level_handoff_test
           /tmp/level_handoff_test
+      - name: Execute original OAM reset and PC model primitives
+        run: |
+          g++ -O2 -std=c++17 -Wall -Wextra -DSM64DS_PLATFORM_ANDROID=1 \
+            -ffunction-sections -fdata-sections -Iport -Iinclude -Iport/ntr/include \
+            port/hal/model_host.cpp src/_ZN3OAM5ResetEv.cpp port/ntr/ppu_audit.cpp \
+            port/android/tests/model_host_test.cpp -Wl,--gc-sections -o /tmp/model_host_test
+          /tmp/model_host_test
       - name: Exercise actual Stage slot-0 adapter probe modes
         run: |
           g++ -std=c++17 -Wall -Wextra -DSM64DS_PLATFORM_ANDROID=1 \

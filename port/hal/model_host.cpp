@@ -133,9 +133,17 @@ DSSTATE_BEGIN
 unsigned char data_0209e660 = 1;
 int data_0209e664, data_0209e668, data_0209e66c, data_0209e670;
 /* main OAM shadow, 0x400 bytes, spelled as the ROM's three symbols */
+#if defined(SM64DS_PLATFORM_ANDROID)
+DSSTATE_SECTION(".dsstate$oamsh0000", 4)
+unsigned char port_oam_main[0x400] = {};
+DSSTATE_ALIAS(data_0209e674, port_oam_main, 0, 8);
+DSSTATE_ALIAS(data_0209e67c, port_oam_main, 8, 24);
+DSSTATE_ALIAS(data_0209e694, port_oam_main, 32, 992);
+#else
 OAMSHADOW(".dsstate$oamsh0000", data_0209e674, unsigned int, 2);      /* +0x000 */
 OAMSHADOW(".dsstate$oamsh0001", data_0209e67c, int, 6);               /* +0x008 */
 OAMSHADOW(".dsstate$oamsh0002", data_0209e694, int, 0xf8);            /* +0x020 */
+#endif
 unsigned int data_0209ea74[0x100];   /* sub OAM shadow, its own 0x400 */
 
 #undef OAMSHADOW
@@ -144,9 +152,9 @@ unsigned int data_0209ea74[0x100];   /* sub OAM shadow, its own 0x400 */
    out at the ROM's offsets, which is the precondition for dual-OAM mode. */
 int hal_oam_layout_check(void)
 {
-    const char *base = (const char *)data_0209e674;
-    long a = (const char *)data_0209e67c - base;
-    long b = (const char *)data_0209e694 - base;
+    const size_t base = (size_t)data_0209e674;
+    long a = (long)((size_t)data_0209e67c - base);
+    long b = (long)((size_t)data_0209e694 - base);
     if (a == 0x08 && b == 0x20)
         return 1;
     printf("  [oam] SHADOW NOT CONTIGUOUS: e67c +%ld (want 8), e694 +%ld "
@@ -375,6 +383,7 @@ extern "C" int hal_tex_log(void)
     return on;
 }
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" void _ZN2GX7LoadTexEPKvjj(const void *s, unsigned o, unsigned z)
 {
     if (hal_tex_log())
@@ -382,6 +391,7 @@ extern "C" void _ZN2GX7LoadTexEPKvjj(const void *s, unsigned o, unsigned z)
                z, data_020a4bc8, data_020a4be8, data_020a4be0, data_020a4bdc);
     GX::LoadTex(s, o, z);
 }
+#endif // Native GX::LoadTex already has this symbol; a face would recurse.
 
 // DMA fallback DMASyncWordTransfer uses; same synchronous copy semantics.
 // PORT_HOST_ABI: DS DMA register poke (0x040000b0 + 2-cycle barrier reads),

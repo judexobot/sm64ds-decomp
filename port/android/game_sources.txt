@@ -1,4 +1,6 @@
 # Original PC walk_window dependency closure; source_gen.py retains PC transformations.
+# Original OAM reset is required with the native packed main/sub shadows.
+src/_ZN3OAM5ResetEv.cpp
 # c-prefixed rows retain original C syntax/AAPCS and contain no MMIO proxy writes.
 c src/LoadSilverStarAndNumber.c
 c src/UnloadSilverStarAndNumber.c

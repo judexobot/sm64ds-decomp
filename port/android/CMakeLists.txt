@@ -74,6 +74,7 @@ add_library(sm64ds_android_game_flow STATIC
   ../hal/stage_slot0.cpp ../hal/stage_globals.cpp ../hal/w8a_stage_storage.cpp
   ../ntr/backup.cpp ../hal/globals_link100.cpp
   ../hal/fs.cpp ../hal/card_mount.cpp
+  ../hal/model_host.cpp
   ../../src/d_s_dsmt.c
   ../../src/_ZN9dScDSMT_c8BehaviorEv.cpp
   ../../src/_ZN9dScDSMT_c6RenderEv.cpp

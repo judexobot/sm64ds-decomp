@@ -5,6 +5,35 @@ No playable APK exists. The running JNI `.so` still contains renderer/input/ROM
 services; the complete game is not linked into it. No ROM or Nintendo media
 was available, fetched, committed or included in test artifacts.
 
+## Model/OAM closure — 2026-11-12
+
+Continues `c25ba236c`, exclusively on `android/game-port`.
+
+* Added PC `hal/model_host.cpp` and the unchanged original OAM::Reset TU to
+  Android. This supplies real forward copy primitives, fixed-point matrix
+  primitives, texture/palette VRAM cursors and render/lifecycle state.
+* The main OAM shadow is a single aligned 1,024-byte object on Android, with
+  ELF aliases at +0, +8 and +32. The sub-screen retains its own 1,024-byte shadow.
+  This preserves the overlapping pattern replication in the original Reset;
+  separate allocations or memmove would produce different data.
+* Excluded the GX::LoadTex name bridge on Android because it would call itself
+  under native Itanium. The original GX implementation remains the provider.
+  Begin/End texture-load hooks retain the existing NTR CPU-visible VRAM contract
+  and cache invalidation. No game logic or assets replace the originals.
+* Fixed gx.h's missing size_t include exposed by independently compiling the
+  existing PPU audit for the new test. Original src/ and include/ remain untouched.
+* The new optimized host test executes original OAM::Reset in both modes,
+  checks every sprite entry and padding, sub-screen preservation/copy, forward
+  byte-overlap fallback, matrix identity/scale/expansion and VRAM reset.
+  It uses synthetic state and the real PPU audit implementation, not ROM media.
+* All **19 host workflow steps** and ELF checks pass locally. NDK Release
+  components compile. Full-game link: **2,745 unresolved symbols, zero
+  duplicates**, compared with 2,794 before adding these providers.
+
+This does not prove on-device sprite rendering or texture uploads. Raw model
+vtables still require their existing runtime seats, and the complete game link,
+ROM-clean resources and Android gameplay loop remain unfinished. No APK exists.
+
 ## Stage init closure — 2026-11-12
 
 Continues `e058a8f90`, exclusively on `android/game-port`.

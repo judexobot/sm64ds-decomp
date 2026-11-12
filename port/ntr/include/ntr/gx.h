@@ -21,6 +21,7 @@
 #include <stdint.h>
 
 #include "ntr/ppu.h"
+#include <stddef.h>
 
 namespace ntr {
 

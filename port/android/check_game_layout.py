@@ -33,6 +33,7 @@ def main():
         "port_level_save_state": ("data_0209caa0", "data_0209cab4", "data_0209cad2", "data_0209cae4", "data_0209caf4"),
         "port_touch_records": ("data_020a0de8", "data_020a0de9", "data_020a0dea", "data_020a0deb"),
         "port_card_state": ("data_020a8180", "data_020a81bc", "data_020a8760"),
+        "port_oam_main": ("data_0209e674", "data_0209e67c", "data_0209e694"),
     }
     for backing, aliases in groups.items():
         assert len(symbols[backing]) == 1
@@ -58,6 +59,8 @@ def main():
     deallocate = symbols.get("_ZN6Memory10DeallocateEPv", [])
     assert len(deallocate) == 1 and "fs.cpp.o" not in deallocate[0][0], "recursive native FS deallocate bridge"
     assert len(symbols.get("port_slot0_rom_init", [])) == 1
+    assert len(symbols.get("_ZN3OAM5ResetEv", [])) == 1
+    assert not any("model_host.cpp.o" in row[0] for row in symbols.get("_ZN2GX7LoadTexEPKvjj", []))
     assert not any("stage_globals.cpp.o" in row[0] for row in symbols.get("__aeabi_uidiv", []))
     for name in ("UnloadArchive", "_ZN5Stage14LoadGraphics2DEbi", "_ZN5Stage7LoadFogEv",
                  "_ZN5Stage23LoadTextureTransformersEv", "_ZN11ShadowModel8CleanAllEv"):

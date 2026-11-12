@@ -5,6 +5,34 @@ No playable APK exists. The running JNI `.so` still contains renderer/input/ROM
 services; the complete game is not linked into it. No ROM or Nintendo media
 was available, fetched, committed or included in test artifacts.
 
+## Stage init closure — 2026-11-12
+
+Continues `e058a8f90`, exclusively on `android/game-port`.
+
+* Added the existing PC `stage_slot0.cpp`, `stage_globals.cpp` and
+  `w8a_stage_storage.cpp` to the Android game archive. The actual slot-0 probe
+  calls the original Stage::InitResources symbol; the additional state belongs
+  to the original pause/clear/VS and Stage initialization closures.
+* Android excludes the PC no-op UnloadArchive and all four name-only forwarding
+  faces that would recurse into themselves under native Itanium. UnloadArchive
+  remains an explicit unresolved dependency until mount teardown is implemented.
+* Android excludes the PC __aeabi_uidiv implementation: ARM division would call
+  that very function recursively. Compiler-rt supplies the platform primitive.
+* The wipe diagnostic accepts a null previous array and no longer reports null
+  vtable/fader pointers as valid installed objects.
+* The new test executes the actual adapter in separate processes for modes
+  0/1/2/3, observing the Stage boundary and level-table/pending-level ordering.
+  It covers the null-old-wipes/new-wipes case. It does not execute ROM init.
+* NDK Release components build; all 18 host workflow steps and ELF checks pass.
+  The strict local game link reports **2,794 unresolved symbols, zero
+  duplicates**, compared with 2,847 before this closure was enrolled.
+
+The slot-0 modes remain PC diagnostic probes, default off. The hosted boot is
+still the Android handoff path: activating the original init after it would
+load twice. This iteration does not enable that probe, claim a successful real
+Stage boot, connect the gameplay loop, or produce an APK. ROM-clean generated
+mounts/metadata, native mount teardown and full boot ordering remain blockers.
+
 ## Current actor/Stage integration iteration
 
 * `android/game_sources.txt` enrolls **2,904 additional original PC source

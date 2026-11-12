@@ -123,9 +123,11 @@ DSSTATE_END
  * src/func_02041224.c, src/_ZN9Butterfly13InitResourcesEv.cpp -- and reads
  * the quotient only. Two spellings, two declared shapes, both correct for
  * their own callers. */
+#if !defined(SM64DS_PLATFORM_ANDROID)
 unsigned int __aeabi_uidiv(unsigned int n, unsigned int d)
 {
     return d ? n / d : 0u;
 }
+#endif // ARM's division lowering calls this symbol; use compiler-rt on Android.
 
 }   /* extern "C" */

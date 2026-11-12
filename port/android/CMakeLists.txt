@@ -71,6 +71,7 @@ add_library(sm64ds_android_game_flow STATIC
   ../hal/actor_vtables.cpp
   ../unmatched/func_02043fdc_hostcopy.cpp
   ../hal/stage_frame.cpp ../hal/message_pump.cpp stage_ctrl.cpp
+  ../hal/stage_slot0.cpp ../hal/stage_globals.cpp ../hal/w8a_stage_storage.cpp
   ../ntr/backup.cpp ../hal/globals_link100.cpp
   ../hal/fs.cpp ../hal/card_mount.cpp
   ../../src/d_s_dsmt.c

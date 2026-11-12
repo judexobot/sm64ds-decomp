@@ -102,6 +102,13 @@ jobs:
           g++ -std=c++17 -Wall -Wextra -Werror -Iport \
             port/android/tests/level_handoff_test.cpp -o /tmp/level_handoff_test
           /tmp/level_handoff_test
+      - name: Exercise actual Stage slot-0 adapter probe modes
+        run: |
+          g++ -std=c++17 -Wall -Wextra -DSM64DS_PLATFORM_ANDROID=1 \
+            -ffunction-sections -fdata-sections -Iport/hal \
+            port/hal/stage_slot0.cpp port/android/tests/stage_slot0_test.cpp \
+            -Wl,--gc-sections -o /tmp/stage_slot0_test
+          for mode in 0 1 2 3; do /tmp/stage_slot0_test "$mode"; done
       - name: Test actual Android title adapter commits and refusals
         run: |
           g++ -std=c++17 -Wall -Wextra -Werror -pthread -Iport -Iport/android \

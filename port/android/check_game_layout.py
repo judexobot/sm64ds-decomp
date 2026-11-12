@@ -57,6 +57,11 @@ def main():
         assert not any("actor_vtables.cpp.o" in row[0] for row in symbols.get(name, [])), name
     deallocate = symbols.get("_ZN6Memory10DeallocateEPv", [])
     assert len(deallocate) == 1 and "fs.cpp.o" not in deallocate[0][0], "recursive native FS deallocate bridge"
+    assert len(symbols.get("port_slot0_rom_init", [])) == 1
+    assert not any("stage_globals.cpp.o" in row[0] for row in symbols.get("__aeabi_uidiv", []))
+    for name in ("UnloadArchive", "_ZN5Stage14LoadGraphics2DEbi", "_ZN5Stage7LoadFogEv",
+                 "_ZN5Stage23LoadTextureTransformersEv", "_ZN11ShadowModel8CleanAllEv"):
+        assert not any("stage_slot0.cpp.o" in row[0] for row in symbols.get(name, [])), name
     # These must resolve to actual native source definitions, never the PC
     # symbol-name forwarders that become recursive under native Itanium ABI.
     for name in ("_ZN2GX13SetBankForTexEt", "_ZN2GX13SetBankForOBJEt",

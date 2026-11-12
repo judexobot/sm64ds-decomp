@@ -112,7 +112,9 @@ extern "C" {
 
    Takeable when the mount is heap-shaped AND that arity is fixed, not before.
    Neither is a decomp gap: both are host-ABI. */
+#if !defined(SM64DS_PLATFORM_ANDROID)
 void UnloadArchive(int)             {}
+#endif // Android must supply a real mount lifecycle, never this PC no-op.
 
 }  /* extern "C" */
 
@@ -345,6 +347,7 @@ struct ShadowModel {
     static void CleanAll();
 };
 
+#if !defined(SM64DS_PLATFORM_ANDROID)
 extern "C" {
 
 /* No receiver: static, and the ROM caller passes two arguments. `bool` is the
@@ -366,6 +369,7 @@ void _ZN11ShadowModel8CleanAllEv(void)
 { ShadowModel::CleanAll(); }
 
 }  /* extern "C" */
+#endif // Native originals already publish these exact Itanium symbols.
 
 // ===========================================================================
 // PART 4 -- THE SLOT-0 SWAP, ENV-GATED SO THE TWO WALLS CAN BE BISECTED
@@ -573,17 +577,18 @@ void port_slot0_check_wipes(void *before)
         std::fprintf(stderr, "[slot0] WIPES is null after InitResources\n");
         return;
     }
-    void *vt0 = *(void **)before;
+    void *vt0 = before ? *(void **)before : nullptr;
     int same = 0, loaded = 0;
     for (int i = 0; i < 7; ++i) {
         unsigned char *o = w + i * 0x60;
-        if (*(void **)o == vt0) ++same;
+        if (vt0 && *(void **)o == vt0) ++same;
         if (*(void **)(o + 0x14)) ++loaded;   /* Model::modelFile, +0x10 + 4 */
     }
     std::fprintf(stderr, "[slot0] WIPES %p -> %p, %d/7 carry the frame-zero "
-                 "vtable, %d/7 have a model file; installed fader %p %s\n",
+                 "non-null vtable, %d/7 have a model file; installed fader %p %s\n",
                  before, (void *)w, same, loaded, data_0209f5bc,
-                 data_0209f5bc == before ? "(unmoved, still valid)" : "(moved)");
+                 !data_0209f5bc ? "(not installed)" :
+                 data_0209f5bc == before ? "(unmoved)" : "(moved)");
 }
 
 }  /* anonymous namespace */
